@@ -1,21 +1,21 @@
 """E8 (paper Table 7): spatial inductive bias. Train a tiny 3-layer VMamba (~0.33M) and ViT (~0.35M) on
 CIFAR-10 with regular vs patch-shuffled images; report final-epoch train loss and test accuracy.
+The whole dataset lives on the GPU and augmentation runs there batch-wise (Kaggle has only 4 CPU cores).
 
-  python src/exp_cifar_bias.py --models vmamba vit --conds regular shuffled --seeds 0 1 2 --epochs 25
+  python src/exp_cifar_bias.py --models vmamba vit --conds regular shuffled --seeds 0 1 2 --epochs 20
 """
 import time
 
 import torch
 import torch.nn.functional as F
 import torchvision
-import torchvision.transforms as T
-from torch.utils.data import DataLoader, Dataset, Subset
 
 from common import DATA_DIR, base_parser, grid_shuffle, out_dir, run_meta, save_json, seed_all
 
 PAPER_PARAMS = {"vmamba": 0.33e6, "vit": 0.35e6}
 MEAN, STD = (0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616)
 GRID = 8  # 32px image / 4px patches = the models' own 8x8 patch grid
+BATCH = 128
 
 
 def build(name):
@@ -27,82 +27,92 @@ def build(name):
                        num_classes=10, drop_path_rate=0.0))
 
 
-class Shuffled(Dataset):
-    """Permute the 8x8 grid of 4x4 patches. Train: a fresh permutation every load.
-    Test: a fixed permutation per image, seeded by (seed, index)."""
-
-    def __init__(self, base, train, seed):
-        self.base, self.train, self.seed = base, train, seed
-
-    def __len__(self):
-        return len(self.base)
-
-    def __getitem__(self, i):
-        x, y = self.base[i]
-        gen = None if self.train else torch.Generator().manual_seed(self.seed * 1_000_003 + i)
-        return grid_shuffle(x, GRID, torch.randperm(GRID * GRID, generator=gen)), y
+def load_cifar(train, n, device):
+    ds = torchvision.datasets.CIFAR10(DATA_DIR / "cifar10", train=train, download=True)
+    x = torch.from_numpy(ds.data[:n]).permute(0, 3, 1, 2).contiguous().to(device)  # uint8 [N, 3, 32, 32]
+    return x, torch.tensor(ds.targets[:n], device=device)
 
 
-def loaders(cond, seed, args):
-    norm = [T.ToTensor(), T.Normalize(MEAN, STD)]
-    train = torchvision.datasets.CIFAR10(DATA_DIR / "cifar10", train=True, download=True,
-                                         transform=T.Compose([T.RandomCrop(32, padding=4), T.RandomHorizontalFlip(), *norm]))
-    test = torchvision.datasets.CIFAR10(DATA_DIR / "cifar10", train=False, download=True, transform=T.Compose(norm))
-    if args.n_train:
-        train = Subset(train, range(args.n_train))
-    if args.n_test:
-        test = Subset(test, range(args.n_test))
-    if cond == "shuffled":
-        train, test = Shuffled(train, True, seed), Shuffled(test, False, seed)
-    kw = dict(batch_size=128, num_workers=args.workers, pin_memory=True)
-    return DataLoader(train, shuffle=True, drop_last=True, **kw), DataLoader(test, **kw)
+def normalize(x):
+    mean = torch.tensor(MEAN, device=x.device)[:, None, None]
+    std = torch.tensor(STD, device=x.device)[:, None, None]
+    return (x - mean) / std
+
+
+def augment(x):
+    """uint8 batch -> RandomCrop(32, padding=4) with black padding + RandomHorizontalFlip, as floats in [0, 1]
+    (the same ops as the torchvision train transform, applied before normalisation)."""
+    b, dev = len(x), x.device
+    x = F.pad(x.float() / 255, (4, 4, 4, 4))
+    oy, ox = torch.randint(0, 9, (2, b, 1), device=dev)
+    ar = torch.arange(32, device=dev)
+    x = x[torch.arange(b, device=dev)[:, None, None], :, (oy + ar)[:, :, None], (ox + ar)[:, None, :]]  # [B,32,32,C]
+    x = x.permute(0, 3, 1, 2)
+    return torch.where(torch.rand(b, 1, 1, 1, device=dev) < 0.5, x.flip(-1), x)
+
+
+def test_perms(n, seed):
+    """Fixed per-image permutation for test images, seeded by (seed, index)."""
+    return torch.stack([torch.randperm(GRID * GRID, generator=torch.Generator().manual_seed(seed * 1_000_003 + i))
+                        for i in range(n)])
 
 
 def run(name, cond, seed, args):
     t0 = time.time()
     seed_all(seed)
-    train_dl, test_dl = loaders(cond, seed, args)
+    train_x, train_y = load_cifar(True, args.n_train, args.device)
+    test_x, test_y = load_cifar(False, args.n_test, args.device)
+    test_x = normalize(test_x.float() / 255)
+    if cond == "shuffled":
+        test_x = grid_shuffle(test_x, GRID, test_perms(len(test_x), seed).to(args.device))
     model = build(name).to(args.device)
     params = sum(p.numel() for p in model.parameters())
     print(f"[{name}] params = {params:,} (paper {PAPER_PARAMS[name]:,.0f})")
     assert abs(params / PAPER_PARAMS[name] - 1) <= 0.10, "parameter count not within 10% of the paper"
 
+    steps = len(train_x) // BATCH  # drop_last
     opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.05)
-    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.epochs * len(train_dl))
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.epochs * steps)
     for epoch in range(args.epochs):
         model.train()
-        total, n = 0.0, 0
-        for x, y in train_dl:
-            x, y = x.to(args.device), y.to(args.device)
-            loss = F.cross_entropy(model(x), y)
+        order = torch.randperm(len(train_x), device=args.device)
+        total = torch.zeros((), device=args.device)
+        for i in range(steps):
+            idx = order[i * BATCH:(i + 1) * BATCH]
+            x = normalize(augment(train_x[idx]))
+            if cond == "shuffled":  # a fresh random permutation per image, every time it is seen
+                x = grid_shuffle(x, GRID, torch.rand(len(x), GRID * GRID, device=args.device).argsort(dim=1))
+            loss = F.cross_entropy(model(x), train_y[idx])
             opt.zero_grad(set_to_none=True)
             loss.backward()
             opt.step()
             sched.step()
-            total, n = total + loss.item() * len(y), n + len(y)
-        train_loss = total / n
+            total += loss.detach()
+        train_loss = (total / steps).item()
         print(f"  {name}/{cond}/s{seed} epoch {epoch + 1}/{args.epochs} loss {train_loss:.3f} ({time.time() - t0:.0f}s)")
 
     model.eval()
-    correct = 0
     with torch.no_grad():
-        for x, y in test_dl:
-            correct += (model(x.to(args.device)).argmax(1).cpu() == y).sum().item()
-    acc = correct / len(test_dl.dataset)
+        correct = sum((model(test_x[i:i + 500]).argmax(1) == test_y[i:i + 500]).sum().item()
+                      for i in range(0, len(test_x), 500))
+    acc = correct / len(test_x)
     print(f"  {name}/{cond}/s{seed}: final train loss {train_loss:.3f}, test acc {acc:.4f}")
     save_json({"config": run_meta(args, t0, experiment="cifar_bias", model=name, condition=cond, seed=seed,
-                                  params=params, n_train=len(train_dl.dataset), n_test=len(test_dl.dataset)),
+                                  params=params, n_train=steps * BATCH, n_test=len(test_x)),
                "metrics": {"train_loss": train_loss, "test_acc": acc}},
               out_dir(args) / f"cifar_{name}_{cond}_s{seed}.json")
 
 
 def save_example(args):
-    """Write one CIFAR image next to its patch-shuffled version, for a visual check."""
-    x, _ = torchvision.datasets.CIFAR10(DATA_DIR / "cifar10", train=False, download=True, transform=T.ToTensor())[0]
-    y = grid_shuffle(x, GRID, torch.randperm(GRID * GRID, generator=torch.Generator().manual_seed(0)))
+    """Row 1: 8 training images after crop/flip; row 2: the same images patch-shuffled (the training pipeline)."""
+    torch.manual_seed(0)
+    x = normalize(augment(load_cifar(True, 8, args.device)[0]))
+    y = grid_shuffle(x, GRID, torch.rand(len(x), GRID * GRID, device=args.device).argsort(dim=1))
+    std, mean = torch.tensor(STD, device=x.device)[:, None, None], torch.tensor(MEAN, device=x.device)[:, None, None]
+    grid = torch.cat([x, y]) * std + mean
     path = out_dir(args) / "cifar_shuffle_example.png"
     path.parent.mkdir(parents=True, exist_ok=True)
-    torchvision.utils.save_image(F.interpolate(torch.stack([x, y]), scale_factor=8, mode="nearest"), path, padding=4)
+    torchvision.utils.save_image(F.interpolate(grid.cpu(), scale_factor=4, mode="nearest"), path, nrow=8, padding=4)
     print(f"saved {path}")
 
 
@@ -111,10 +121,9 @@ if __name__ == "__main__":
     p.add_argument("--models", nargs="+", default=["vmamba", "vit"], choices=["vmamba", "vit"])
     p.add_argument("--conds", nargs="+", default=["regular", "shuffled"], choices=["regular", "shuffled"])
     p.add_argument("--seeds", nargs="+", type=int, default=[0, 1, 2])
-    p.add_argument("--epochs", type=int, default=25)
+    p.add_argument("--epochs", type=int, default=20)
     p.add_argument("--n-train", type=int, default=None)
     p.add_argument("--n-test", type=int, default=None)
-    p.add_argument("--workers", type=int, default=4)
     args = p.parse_args()
     if args.smoke:
         args.epochs, args.seeds = 1, [0]

@@ -42,9 +42,17 @@ The CLIMP paths (VMamba, Mamba) need CUDA, so their smoke tests run on Kaggle.
 ## Kaggle
 
 Notebook: `kaggle/run_climp.ipynb`. Settings: **GPU T4 x2**, **Internet on**, secret **`HF_TOKEN`**.
+It installs torch 2.10 + the official prebuilt `mamba-ssm` / `causal-conv1d` wheels (~3-5 min; it falls back to
+compiling only if they fail a GPU self-test), then runs two queues in parallel, one per T4:
 
-1. `MODE = "smoke"` → Save & Run All (~30 min). Check every script passes, then pick `E8_EPOCHS` from the E8 timing.
-2. `MODE = "full", STAGE = "A"` → E1 (stops if the README gate fails) → E2 → E6 → E3 → E4 (~3 h).
-3. `MODE = "full", STAGE = "B"` → E5 → E7 → E8 (~2–2.5 h; E8 runs one model per GPU).
-4. Download `results_A.zip`, `results_B.zip` from the Output tab, unzip both into this folder, then run
-   `python src/make_results.py` to build `results/tables/` and `results/figures/`.
+| GPU 0 | GPU 1 |
+|---|---|
+| E1 → E2 → E3 → E4 | E6 → E8 → E5 → E7 |
+
+CLIMP-dependent jobs (E3, E4, E5, E7) wait for the E1 README gate and are skipped if it fails. Only one process
+loads a CLIMP model at a time (file lock), and peak RAM is printed every 5 min and stored in every result JSON.
+
+1. `MODE = "smoke"` → Save & Run All (~25 min). Check every job passes; set `E8_EPOCHS` from the E8 timing.
+2. `MODE = "full"` → Save & Run All (~1.5-2 h).
+3. Download `results_full.zip` from the Output tab, unzip it into this folder (it contains `results/`, including
+   `results/logs/`), then run `python src/make_results.py` to rebuild `results/tables/` and `results/figures/`.

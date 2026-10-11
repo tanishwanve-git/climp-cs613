@@ -3,14 +3,17 @@
 Import this module before `datasets`/`transformers` so HF_HOME points into DATA_DIR.
 """
 import argparse
+import fcntl
 import gc
 import json
 import os
 import random
+import resource
 import subprocess
 import sys
 import time
 from collections import namedtuple
+from contextlib import contextmanager
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,11 +59,33 @@ def autocast(device):
     return torch.autocast("cuda", dtype=torch.float16, enabled=str(device).startswith("cuda"))
 
 
+@contextmanager
+def _load_lock():
+    """Only one process loads a large model at a time (two GPU queues share ~29 GB of CPU RAM)."""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(DATA_DIR / ".model_load.lock", "w") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+
+
 def _load_climp(variant, image_size, device):
-    from models import load_climp
+    from huggingface_hub import hf_hub_download
+    from safetensors.torch import load_file
+    from models import HF_REPOS, MambaCLIP
     from data.utils import transform_image
 
-    model = load_climp(variant, image_size=image_size, device=device)
+    # Same steps as upstream load_climp (build MambaCLIP, strict load_state_dict of model.safetensors, eval), but the
+    # model is moved to the GPU before the checkpoint is read, so the pretrained text model and the checkpoint are
+    # never both in CPU RAM (peak ~6 GB instead of ~12 GB).
+    with _load_lock():
+        model = MambaCLIP(model_type=variant, image_size=image_size).to(device)
+        state = load_file(hf_hub_download(repo_id=HF_REPOS[variant], filename="model.safetensors"))
+        model.load_state_dict(state)
+        del state
+        model.eval()
     tok = model.text_tokenizer
 
     @torch.no_grad()
@@ -130,6 +155,16 @@ def encode_image_set(model, get_image, n, batch_size=None, workers=4):
     return torch.cat([model.encode_images(x) for x in tqdm(dl, desc=f"{model.name}@{model.image_size}")])
 
 
+def with_resolution(m, image_size, device):
+    """Same model at another input resolution. CLIMP: VMamba uses `imgsize` only for positional embeddings, which
+    CLIMP disables, so the weights are reused and only preprocessing changes. OpenCLIP: positional embeddings must be
+    re-interpolated, so the model is rebuilt (caller should drop the old one)."""
+    if m.name.startswith("climp"):
+        from data.utils import transform_image
+        return m._replace(image_size=image_size, preprocess=transform_image(image_size))
+    return load_model(m.name, image_size, device)
+
+
 def free_model():
     """Call after `del model` so the next (6-11 GB) model fits."""
     gc.collect()
@@ -139,11 +174,16 @@ def free_model():
 
 def grid_shuffle(x, grid, perm):
     """Split the last two dims of x ([..., C, H, W]) into a grid x grid array of equal blocks and
-    reorder the blocks by `perm` (a permutation of range(grid*grid), row-major)."""
+    reorder the blocks by `perm`: a permutation of range(grid*grid) (row-major) shared by all images,
+    or, for a batch x of shape [B, C, H, W], one permutation per image with shape [B, grid*grid]."""
     *lead, c, h, w = x.shape
     bh, bw = h // grid, w // grid
     blocks = x.reshape(*lead, c, grid, bh, grid, bw).movedim(-3, -2)  # [..., C, g, g, bh, bw]
-    blocks = blocks.reshape(*lead, c, grid * grid, bh, bw)[..., perm, :, :]
+    blocks = blocks.reshape(*lead, c, grid * grid, bh, bw)
+    if perm.dim() == 1:
+        blocks = blocks[..., perm, :, :]
+    else:
+        blocks = blocks.gather(2, perm[:, None, :, None, None].expand_as(blocks))
     return blocks.reshape(*lead, c, grid, grid, bh, bw).movedim(-2, -3).reshape(*lead, c, h, w)
 
 
@@ -171,7 +211,9 @@ def run_meta(args, t0, **extra):
         except Exception:
             versions[pkg] = None
     gpu = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
-    return {"args": vars(args), **extra, "versions": versions, "gpu": gpu,
+    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss  # KB on Linux, bytes on macOS
+    peak_ram_gb = round(rss / (1e9 if sys.platform == "darwin" else 1e6), 2)
+    return {"args": vars(args), **extra, "versions": versions, "gpu": gpu, "peak_ram_gb": peak_ram_gb,
             "git": _git_hash(ROOT), "upstream_git": _git_hash(UPSTREAM),
             "seconds": round(time.time() - t0, 1)}
 

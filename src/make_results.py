@@ -51,6 +51,11 @@ def pfmt(v, nd=1):
     return "–" if v is None else f"{v:.{nd}f}"
 
 
+def legend(ax):
+    if ax.get_legend_handles_labels()[0]:  # nothing to label until results exist
+        ax.legend()
+
+
 def write_table(out, name, title, header, rows, note=""):
     md = [f"### {title}", "", "| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
     md += ["| " + " | ".join(r) + " |" for r in rows]
@@ -92,7 +97,8 @@ def nocaps(res, paper, out):
             if any(y is not None for y in ys):
                 ax.plot([int(r) for r in RES], [None if y is None else 100 * y for y in ys], ls, marker="o",
                         label=f"{m} {task.split('_')[0]}")
-    ax.set_xlabel("input resolution"), ax.set_ylabel("R@5 (%)"), ax.set_title("NoCaps R@5 vs resolution"), ax.legend()
+    ax.set_xlabel("input resolution"), ax.set_ylabel("R@5 (%)"), ax.set_title("NoCaps R@5 vs resolution")
+    legend(ax)
     return fig
 
 
@@ -134,7 +140,8 @@ def zeroshot(res, paper, out):
     write_table(out, "e4_shuffle", "E4 ImageNet-V2 top-1 under G×G patch shuffle",
                 ["Model", "Dataset"] + [f"G={g}" for g in GRIDS], rows, "Brackets: change relative to G = 1.")
     plt.xscale("log", base=2), plt.xlabel("shuffle grid G"), plt.ylabel("ImageNet-V2 top-1 (%)")
-    plt.title("Patch-shuffle robustness"), plt.legend()
+    plt.title("Patch-shuffle robustness")
+    legend(plt.gca())
     return fig
 
 
@@ -175,7 +182,8 @@ def efficiency(res, paper, out):
             if any(y is not None for y in ys):
                 ax.plot(resolutions, ys, marker="o", label=m)
     for ax, lab in zip(axes, ["activation memory (MB)", "GFLOPs"]):
-        ax.set_xlabel("input resolution"), ax.set_ylabel(lab), ax.legend()
+        ax.set_xlabel("input resolution"), ax.set_ylabel(lab)
+        legend(ax)
     return fig
 
 

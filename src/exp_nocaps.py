@@ -12,7 +12,7 @@ import torch
 import torch.nn.functional as F
 
 from common import (MODELS, ROOT, autocast, base_parser, encode_image_set, free_model, load_model, out_dir,
-                    run_meta, save_json, seed_all)
+                    run_meta, save_json, seed_all, with_resolution)
 from datasets import load_dataset
 from metrics import recall_at_k
 
@@ -29,6 +29,14 @@ def padding_check(m, texts):
     with torch.no_grad(), autocast(enc["input_ids"].device):
         upstream = F.normalize(m.module.encode_text(enc["input_ids"], enc["attention_mask"]).float(), dim=-1).cpu()
     return (m.encode_texts(texts) * upstream).sum(-1).min().item()
+
+
+def vmamba_resolution_independent():
+    """CLIMP reuses one set of weights at every resolution; check VMamba-B has identical parameter names/shapes at
+    224 and 896 (i.e. nothing in the architecture depends on the input size)."""
+    from models import build_vmamba
+    a, b = build_vmamba(224).state_dict(), build_vmamba(896).state_dict()
+    return a.keys() == b.keys() and all(a[k].shape == b[k].shape for k in a)
 
 
 def gate(name, metrics):
@@ -55,12 +63,15 @@ def main(args):
     print(f"NoCaps validation: {len(ds)} images, {len(texts)} captions")
     images = ds.select_columns(["image"])
     gate_failed = False
+    if any(n.startswith("climp") for n in args.models):
+        assert vmamba_resolution_independent(), "VMamba weights depend on input resolution; cannot reuse the model"
+        print("[check] VMamba-B parameters identical in name/shape at 224 and 896 -> one CLIMP model serves all resolutions")
 
     for name in args.models:
-        text_emb = None
+        text_emb, m = None, None
         for res in args.resolutions:
             t0 = time.time()
-            m = load_model(name, res, args.device)
+            m = load_model(name, res, args.device) if m is None else with_resolution(m, res, args.device)
             extra = {}
             if text_emb is None:  # text tower does not depend on image resolution: encode once per model
                 text_emb = m.encode_texts(texts)
@@ -69,7 +80,6 @@ def main(args):
                     print(f"[padding check] {name}: tokenizer padding_side={m.tokenizer.padding_side}, "
                           f"min cos(longest, upstream) = {extra['padding_check_min_cos']:.5f} (need > 0.999)")
             img_emb = encode_image_set(m, lambda i: images[i]["image"], len(ds), args.batch_size, args.workers)
-            del m
             free_model()
 
             sim = text_emb @ img_emb.T
@@ -78,7 +88,10 @@ def main(args):
             print(f"{name} @{res}: " + ", ".join(f"{t} R@{k}={100 * v:.1f}" for t, d in metrics.items() for k, v in d.items()))
             if name.startswith("climp") and res == 224 and not args.smoke:
                 extra["gate"] = gate(name, metrics)
-                gate_failed |= not extra["gate"]["pass"]
+                if not extra["gate"]["pass"]:
+                    gate_failed = True
+                    (out_dir(args) / "GATE_FAILED").parent.mkdir(parents=True, exist_ok=True)
+                    (out_dir(args) / "GATE_FAILED").write_text(json.dumps(extra["gate"]))  # read by the other GPU queue
             out = out_dir(args)
             save_json({"config": run_meta(args, t0, experiment="nocaps", model=name, image_size=res,
                                           n_images=len(ds), n_texts=len(texts), **extra), "metrics": metrics},
@@ -86,6 +99,8 @@ def main(args):
             (out / "emb").mkdir(parents=True, exist_ok=True)
             torch.save({"image_emb": img_emb, "text_emb": text_emb, "text_to_image_index": text_img},
                        out / "emb" / f"nocaps_{name}_{res}.pt")
+        del m
+        free_model()
     if gate_failed:
         sys.exit("[GATE] FAILED: CLIMP does not reproduce the README numbers. Stop and debug before other runs.")
 

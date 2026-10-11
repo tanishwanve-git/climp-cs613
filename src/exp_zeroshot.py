@@ -2,7 +2,7 @@
 E4 (new): --shuffle-grid G splits each preprocessed image into a GxG grid and permutes the blocks
 (permutation seeded by seed + image index, so both models see the same permutation).
 
-  python src/exp_zeroshot.py --datasets cifar10 imagenetv2 imagenet-r imagenet-a imagenet-o
+  python src/exp_zeroshot.py
   python src/exp_zeroshot.py --datasets imagenetv2 --shuffle-grid 2 4 8
 """
 import time
@@ -83,13 +83,14 @@ def main(args):
 if __name__ == "__main__":
     p = base_parser(__doc__)
     p.add_argument("--models", nargs="+", default=["climp-mamba1", "openclip-vitb16"])
-    p.add_argument("--datasets", nargs="+", default=list(REPOS), choices=list(REPOS))
+    p.add_argument("--datasets", nargs="+", default=None, choices=list(REPOS),
+                   help="default: ImageNet-V2/R/A/O (smoke: CIFAR-10 sanity check + ImageNet-O)")
     p.add_argument("--shuffle-grid", nargs="+", type=int, default=[1])
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--batch-size", type=int, default=64)
     p.add_argument("--workers", type=int, default=4 if torch.cuda.is_available() else 0)
     p.add_argument("--n-smoke", type=int, default=128)
     args = p.parse_args()
-    if args.smoke and args.datasets == list(REPOS):
-        args.datasets = ["cifar10", "imagenet-o"]
+    if args.datasets is None:
+        args.datasets = ["cifar10", "imagenet-o"] if args.smoke else ["imagenetv2", "imagenet-r", "imagenet-a", "imagenet-o"]
     main(args)

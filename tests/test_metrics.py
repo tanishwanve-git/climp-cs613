@@ -72,3 +72,22 @@ def test_grid_shuffle():
     y = grid_shuffle(x, 4, perm)
     assert torch.equal(grid_shuffle(y, 4, torch.argsort(perm)), x)  # inverse permutation restores
     assert torch.equal(y[..., 0:2, 0:2], x[..., (perm[0] // 4) * 2:(perm[0] // 4) * 2 + 2, (perm[0] % 4) * 2:(perm[0] % 4) * 2 + 2])
+
+
+def test_grid_shuffle_batched_matches_per_image():
+    torch.manual_seed(0)
+    x = torch.randn(5, 3, 32, 32)
+    perms = torch.rand(5, 64).argsort(dim=1)
+    batched = grid_shuffle(x, 8, perms)
+    assert torch.equal(batched, torch.stack([grid_shuffle(x[i], 8, perms[i]) for i in range(5)]))
+
+
+def test_e8_augment_is_padded_crop_or_flip():
+    from exp_cifar_bias import augment
+    torch.manual_seed(0)
+    x = torch.randint(0, 256, (16, 3, 32, 32), dtype=torch.uint8)
+    y = augment(x)
+    padded = F.pad(x.float() / 255, (4, 4, 4, 4))  # black padding, as torchvision RandomCrop(padding=4)
+    for i in range(16):
+        windows = [padded[i, :, oy:oy + 32, ox:ox + 32] for oy in range(9) for ox in range(9)]
+        assert any(torch.equal(y[i], w) or torch.equal(y[i], w.flip(-1)) for w in windows)
