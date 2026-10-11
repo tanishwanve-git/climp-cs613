@@ -1,0 +1,9 @@
+# Extra deps beyond upstream CLIMP/requirements.txt (install that too, minus torch, on GPU machines)
+open_clip_torch>=2.24
+clip-benchmark>=1.6
+webdataset>=0.2
+matplotlib>=3.7
+scipy>=1.10
+pytest>=7
+timm>=0.9
+fvcore>=0.1.5

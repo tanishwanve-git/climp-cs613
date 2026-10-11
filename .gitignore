@@ -1,0 +1,10 @@
+CLIMP/
+data/
+results_smoke/
+results/emb/
+*.pt
+*.safetensors
+__pycache__/
+.pytest_cache/
+.ipynb_checkpoints/
+.DS_Store

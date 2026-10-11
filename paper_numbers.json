@@ -1,0 +1,34 @@
+{
+  "_note": "Values reported in the paper (arXiv 2601.06891 v2) and the upstream README. Percentages. Used only for side-by-side tables.",
+  "nocaps_readme_224": {
+    "climp-mamba1": {"image_retrieval": {"1": 38.2, "5": 70.5, "10": 81.8}, "text_retrieval": {"1": 51.8, "5": 81.9, "10": 90.9}},
+    "climp-mamba2": {"image_retrieval": {"1": 37.4, "5": 70.2, "10": 81.6}, "text_retrieval": {"1": 51.0, "5": 81.3, "10": 90.9}}
+  },
+  "nocaps_table4_r5": {
+    "_note": "Pairs are [column labelled I->T, column labelled T->I] in the paper; they correspond to the code's [image retrieval, text retrieval].",
+    "climp-mamba1": {"224": [70.5, 81.9], "512": [66.9, 72.7], "896": [57.1, 53.5]},
+    "climp-mamba2": {"224": [70.2, 81.3], "512": [66.4, 72.4], "896": [57.1, 53.8]},
+    "rope-vit (reference)": {"224": [67.6, 78.9], "512": [65.1, 75.9], "896": [38.6, 34.9]}
+  },
+  "zeroshot_table2": {
+    "_note": "[top-1, top-5]; null = not reported.",
+    "climp-mamba1": {"imagenetv2": [37.5, 68.4], "imagenet-r": [46.2, 74.5], "imagenet-a": [15.5, 45.3], "imagenet-o": [48.1, 78.8]},
+    "rope-vit (reference)": {"imagenetv2": [34.4, 65.4], "imagenet-r": [47.8, 76.0], "imagenet-a": [16.3, 46.3], "imagenet-o": [40.1, 69.9]},
+    "openclip-vitb16": {"imagenet-o": [42.3, null]}
+  },
+  "docci_table6": {
+    "climp-mamba1": {"image_retrieval": {"1": 37.3, "5": 67.1, "10": 77.8}, "text_retrieval": {"1": 23.8, "5": 50.4, "10": 62.7}}
+  },
+  "geometry_table8": {
+    "climp-mamba1": {"alignment": 0.982, "uniformity_image": -3.18, "uniformity_text": -3.54, "hubness_image": 1.01, "hubness_text": 1.15}
+  },
+  "cifar_table7": {
+    "_note": "[train loss, test accuracy %]",
+    "vmamba": {"regular": [1.028, 69.33], "shuffled": [1.612, 46.44]},
+    "vit": {"regular": [1.121, 67.50], "shuffled": [1.328, 59.72]}
+  },
+  "efficiency_fig3_896": {
+    "vmamba-b": {"memory_mb": 10.0, "gflops": 259.7},
+    "vit-b16": {"memory_mb": 50.4, "gflops": 457.9}
+  }
+}
