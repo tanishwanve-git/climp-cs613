@@ -156,17 +156,20 @@ def efficiency(res, paper, out):
     d = load(res, "efficiency")
     resolutions = sorted({int(r) for m in (d or {}).values() for r in m}) or [224, 384, 512, 768, 896]
     rows = []
-    for m in ["vmamba-b", "vit-b16"]:
+    for m in ["vmamba-b", "vit-b16", "vit-b16-eager"]:
         for key in ["activation_mb", "peak_mb", "gflops"]:
             rows.append([m, key] + [fmt(get(d, m, str(r), key), 1, 1) for r in resolutions])
         p = get(paper, "efficiency_fig3_896", m)
+        if p is None:
+            continue
         rows.append([m, "paper @896 (MB / GFLOPs)"] + [""] * (len(resolutions) - 1) +
                     [f"{pfmt(get(p, 'memory_mb'))} / {pfmt(get(p, 'gflops'))}"])
     write_table(out, "e6_efficiency", "E6 Vision-encoder memory and FLOPs vs resolution (paper Fig. 3)",
                 ["Model", "Quantity"] + [str(r) for r in resolutions], rows,
-                "Batch 1, fp16. activation = peak − weights. FLOPs from fvcore (1 multiply-add = 1 FLOP).")
+                "Batch 1, fp16. activation = peak − (weights + input). FLOPs from fvcore (1 multiply-add = 1 FLOP). "
+                "vit-b16 uses fused (memory-efficient) attention; vit-b16-eager materialises the attention matrix.")
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-    for m in ["vmamba-b", "vit-b16"]:
+    for m in ["vmamba-b", "vit-b16", "vit-b16-eager"]:
         for ax, key in zip(axes, ["activation_mb", "gflops"]):
             ys = [get(d, m, str(r), key) for r in resolutions]
             if any(y is not None for y in ys):

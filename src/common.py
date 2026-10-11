@@ -22,6 +22,8 @@ sys.path.insert(0, str(UPSTREAM))
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
 
 # preprocess: PIL image -> tensor. encode_images: [B,3,H,W] tensor -> [B,D].
 # encode_texts: list[str] -> [N,D]. All outputs are L2-normalised float32 CPU tensors.
@@ -49,7 +51,7 @@ def load_model(name, image_size=224, device="cuda"):
     raise ValueError(f"unknown model {name}")
 
 
-def _autocast(device):
+def autocast(device):
     # T4 has no bf16; upstream eval also runs under fp16 autocast.
     return torch.autocast("cuda", dtype=torch.float16, enabled=str(device).startswith("cuda"))
 
@@ -63,7 +65,7 @@ def _load_climp(variant, image_size, device):
 
     @torch.no_grad()
     def encode_images(pixels):
-        with _autocast(device):
+        with autocast(device):
             emb = model.encode_image(pixels.to(device))
         return F.normalize(emb.float(), dim=-1).cpu()
 
@@ -73,7 +75,7 @@ def _load_climp(variant, image_size, device):
         for i in range(0, len(texts), batch_size):
             enc = tok(texts[i:i + batch_size], padding="longest", truncation=max_tokens is not None,
                       max_length=max_tokens, return_tensors="pt").to(device)
-            with _autocast(device):
+            with autocast(device):
                 emb = model.encode_text(enc["input_ids"], enc["attention_mask"])
             out.append(F.normalize(emb.float(), dim=-1).cpu())
         return torch.cat(out)
@@ -93,7 +95,7 @@ def _load_openclip(image_size, device):
 
     @torch.no_grad()
     def encode_images(pixels):
-        with _autocast(device):
+        with autocast(device):
             emb = model.encode_image(pixels.to(device))
         return F.normalize(emb.float(), dim=-1).cpu()
 
@@ -101,12 +103,31 @@ def _load_openclip(image_size, device):
     def encode_texts(texts, max_tokens=None, batch_size=256):
         out = []
         for i in range(0, len(texts), batch_size):
-            with _autocast(device):
+            with autocast(device):
                 emb = model.encode_text(tok(texts[i:i + batch_size]).to(device))
             out.append(F.normalize(emb.float(), dim=-1).cpu())
         return torch.cat(out)
 
     return Model("openclip-vitb16", image_size, preprocess, encode_images, encode_texts, tok, model)
+
+
+class _Images(Dataset):
+    def __init__(self, get_image, n, preprocess):
+        self.get_image, self.n, self.preprocess = get_image, n, preprocess
+
+    def __len__(self):
+        return self.n
+
+    def __getitem__(self, i):
+        return self.preprocess(self.get_image(i).convert("RGB"))
+
+
+def encode_image_set(model, get_image, n, batch_size=None, workers=4):
+    """Encode images get_image(0..n-1) (PIL) with the model's own preprocessing.
+    Default batch size shrinks with resolution (32 @224 -> 4 @896) so ViT attention fits in 16 GB."""
+    batch_size = batch_size or max(4, round(32 * (224 / model.image_size) ** 2))
+    dl = DataLoader(_Images(get_image, n, model.preprocess), batch_size=batch_size, num_workers=workers)
+    return torch.cat([model.encode_images(x) for x in tqdm(dl, desc=f"{model.name}@{model.image_size}")])
 
 
 def free_model():

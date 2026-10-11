@@ -13,3 +13,7 @@ One line each. Added as decisions are made.
 - E8 shuffled condition: a new random permutation of the 8x8 grid of 4x4 patches per training image (re-drawn every time the image is loaded); test images use a fixed per-image permutation seeded by (seed, image index). A single fixed permutation would be trivially undone by ViT's learned positional embeddings.
 - E6 FLOPs come from fvcore, which counts one multiply-add as one FLOP. VMamba FLOPs use upstream VSSM.flops() (fvcore + selective_scan_flop_jit).
 - Upstream CLIMP is pinned to commit 3ff1279bb87f905596e6187f0e4a14f2cd28e818 (main, cloned 2026-10-12).
+- DOCCI: official files (docci_descriptions.jsonlines + docci_images.tar.gz, test split = 5000 images); google/docci on HF uses a loading script that current `datasets` cannot run.
+- NoCaps is loaded from HF's auto-converted parquet of HuggingFaceM4/NoCaps (refs/convert/parquet): same rows/order as upstream's load_dataset call, whose loading script no longer runs in datasets>=3.
+- E1 smoke runs at 224 and 896 (not only 224) so GPU-memory problems at 896 appear before full runs. Image batch size defaults to max(4, 32*(224/res)^2).
+- E6 reports ViT-B/16 twice: fused SDPA attention (timm default) and eager attention (explicit LxL matrix); the paper does not say which its baselines used. ViT FLOPs are always counted on the eager graph because fvcore cannot see inside the fused kernel.
