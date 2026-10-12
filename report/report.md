@@ -18,7 +18,7 @@ CLIMP replaces **both** towers with state-space models (SSMs): VMamba for images
 
 We re-evaluated the two released checkpoints on eight experiments on 2× Tesla T4. We added a strong, publicly available ViT-B/16 CLIP baseline and four analyses that are not in the paper.
 
-**What reproduces.** Every number we could recompute from the released weights matches the paper to within 0.1–0.4 pp:
+**What reproduces.** We did not retrain CLIMP. We ran the authors' released, already-trained weights on the same test sets. Close agreement is therefore expected if the evaluation is correct, and it is our check that it is. The training claims themselves (the controlled CC12M comparison and scaling) are not re-tested; only the small CIFAR-10 experiment (E8) is retrained, and there only the pattern, not the values, matches. Every number we could recompute from the released weights matches the paper to within 0.1–0.4 pp:
 
 - NoCaps retrieval at 224/512/896 px (all of Table 4);
 - the four ImageNet variants of Table 2 (top-5 exact; top-1 within 0.4 pp except ImageNet-O);
@@ -550,11 +550,12 @@ This is notable because CLIMP's text tower is a 1.4 B-parameter language model, 
    - But OpenCLIP has worse geometry and far better retrieval (§5.2), so geometry is not sufficient.
    - The hubness k is unspecified, and the text and the table disagree (1.13 vs. 1.15).
 5. **Small-scale bias ≠ large-scale behaviour.** The spatial-bias evidence (E8) uses 0.33 M-parameter models on CIFAR-10. In the pretrained model, the layout sensitivity is the same as a ViT's (§6.4).
-6. **Presentation issues.**
+6. **What our study cannot test.** We evaluated released weights and did not retrain at scale, so the paper's central controlled comparison (all models trained identically on CC12M), its baselines and its scaling curves are taken on trust. Our close matches confirm the *evaluation*, not the *training*.
+7. **Presentation issues.**
    - Table 4's I→T and T→I labels appear swapped relative to the code and README.
    - The memory figure has no units definition.
    - The ImageNet-O row may be mixed up.
-7. **Scope of evaluation.** Zero-shot evaluation is mostly ImageNet-centric. Compositional understanding is not evaluated; our E7 shows it is weak.
+8. **Scope of evaluation.** Zero-shot evaluation is mostly ImageNet-centric. Compositional understanding is not evaluated; our E7 shows it is weak.
 
 ### 7.3 Assumptions the method makes
 
