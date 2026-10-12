@@ -11,7 +11,7 @@ import time
 import torch
 import torch.nn.functional as F
 
-from common import (MODELS, ROOT, autocast, base_parser, encode_image_set, free_model, load_model, out_dir,
+from common import (ALL_MODELS, MODELS, ROOT, autocast, base_parser, encode_image_set, free_model, load_model, out_dir,
                     run_meta, save_json, seed_all, with_resolution)
 from datasets import load_dataset
 from metrics import recall_at_k
@@ -86,7 +86,7 @@ def main(args):
             metrics = {"image_retrieval": {str(k): v for k, v in recall_at_k(sim, gt, KS).items()},
                        "text_retrieval": {str(k): v for k, v in recall_at_k(sim.T, gt.T, KS).items()}}
             print(f"{name} @{res}: " + ", ".join(f"{t} R@{k}={100 * v:.1f}" for t, d in metrics.items() for k, v in d.items()))
-            if name.startswith("climp") and res == 224 and not args.smoke:
+            if name in ("climp-mamba1", "climp-mamba2") and res == 224 and not args.smoke:  # released checkpoints only
                 extra["gate"] = gate(name, metrics)
                 if not extra["gate"]["pass"]:
                     gate_failed = True
@@ -107,7 +107,7 @@ def main(args):
 
 if __name__ == "__main__":
     p = base_parser(__doc__)
-    p.add_argument("--models", nargs="+", default=MODELS, choices=MODELS)
+    p.add_argument("--models", nargs="+", default=MODELS, choices=ALL_MODELS)
     p.add_argument("--resolutions", nargs="+", type=int, default=[224, 512, 896])
     p.add_argument("--batch-size", type=int, default=None, help="default: 32 @224, scaled down with resolution")
     p.add_argument("--workers", type=int, default=4 if torch.cuda.is_available() else 0)

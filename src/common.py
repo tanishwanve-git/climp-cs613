@@ -32,6 +32,8 @@ from tqdm import tqdm
 # encode_texts: list[str] -> [N,D]. All outputs are L2-normalised float32 CPU tensors.
 Model = namedtuple("Model", "name image_size preprocess encode_images encode_texts tokenizer module")
 MODELS = ["climp-mamba1", "climp-mamba2", "openclip-vitb16"]
+# climp-ours: our retrained CLIMP (src/train_climp.py); weights file given by $CLIMP_OURS_CKPT
+ALL_MODELS = MODELS + ["climp-ours"]
 
 
 def base_parser(description):
@@ -80,11 +82,15 @@ def _load_climp(variant, image_size, device):
     # Same steps as upstream load_climp (build MambaCLIP, strict load_state_dict of model.safetensors, eval), but the
     # model is moved to the GPU before the checkpoint is read, so the pretrained text model and the checkpoint are
     # never both in CPU RAM (peak ~6 GB instead of ~12 GB).
+    # "ours": our checkpoint holds everything except the text tower, which stayed frozen at pretrained Mamba-1.4B
+    # (exactly what MambaCLIP(model_type="mamba1") builds), so only text_encoder.* may be missing.
     with _load_lock():
-        model = MambaCLIP(model_type=variant, image_size=image_size).to(device)
-        state = load_file(hf_hub_download(repo_id=HF_REPOS[variant], filename="model.safetensors"))
-        model.load_state_dict(state)
-        del state
+        model = MambaCLIP(model_type="mamba1" if variant == "ours" else variant, image_size=image_size).to(device)
+        if variant == "ours":
+            r = model.load_state_dict(load_file(os.environ["CLIMP_OURS_CKPT"]), strict=False)
+            assert not r.unexpected_keys and r.missing_keys and all(k.startswith("text_encoder.") for k in r.missing_keys), r
+        else:
+            model.load_state_dict(load_file(hf_hub_download(repo_id=HF_REPOS[variant], filename="model.safetensors")))
         model.eval()
     tok = model.text_tokenizer
 

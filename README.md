@@ -59,3 +59,15 @@ loads a CLIMP model at a time (file lock), and peak RAM is printed every 5 min a
 5. After every run download `results_<run>.zip` from the Output tab and unzip it into this folder (they all unpack
    into `results/`, logs into `results/logs/`), then run `python src/make_results.py` to rebuild
    `results/tables/` and `results/figures/` (missing experiments show as TODO).
+
+## Retraining CLIMP without the released weights (scaled down)
+
+`src/train_climp.py` retrains CLIMP from the paper's starting points (VMamba-B ImageNet-1K + frozen Mamba-1.4B) on
+COCO Captions, and the evaluation scripts load the result as model `climp-ours` (`CLIMP_OURS_CKPT=<weights>`).
+Notebook `kaggle/train_climp.ipynb` (secrets `HF_TOKEN` and a write token `HF_WRITE_TOKEN`; data and checkpoints are
+passed between runs through a private HF repo) runs one step per Kaggle run:
+
+1. `STEP = "check"`: checkpoint loading, released-vs-pretrained text tower, speed / batch-size probe, tiny end-to-end run.
+2. `STEP = "prep"`: COCO → 256 px images + cached caption features.
+3. `STEP = "train"`: both GPUs, checkpoint + COCO-val retrieval every 45 min, `RESUME = True` continues.
+4. `STEP = "eval"`, `EVAL = ["E1E2"]` / `["E3"]` / `["E5"]`: results go to `results_trained/`.

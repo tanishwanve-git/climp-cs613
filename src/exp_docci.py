@@ -69,8 +69,8 @@ def main(args):
             extra["tokens"] = {"mean": lengths.float().mean().item(), "frac_over_77": (lengths > 77).float().mean().item(),
                                "frac_over_154": (lengths > 154).float().mean().item(), "max": lengths.max().item()}
             print(f"Mamba tokenizer lengths: {extra['tokens']} (paper: mean ~142, 94.4% over 77)")
-            embs = {key: m.encode_texts(texts, max_tokens=mt) for key, mt in TRUNCATIONS.items()}
-            if args.smoke:  # truncation must actually change the embedding of long captions
+            embs = {key: m.encode_texts(texts, max_tokens=TRUNCATIONS[key]) for key in args.tokens}
+            if args.smoke and {"77", "full"} <= set(embs):  # truncation must actually change long captions
                 long = lengths > 77
                 cos = (embs["77"][long] * embs["full"][long]).sum(-1)
                 extra["truncation_check_max_cos"] = cos.max().item()
@@ -93,6 +93,8 @@ if __name__ == "__main__":
     p = base_parser(__doc__)
     p.add_argument("--models", nargs="+", default=["climp-mamba1", "openclip-vitb16"])
     p.add_argument("--resolution", type=int, default=896)
+    p.add_argument("--tokens", nargs="+", default=list(TRUNCATIONS), choices=list(TRUNCATIONS),
+                   help="CLIMP text lengths (paper Table 6 uses full)")
     p.add_argument("--workers", type=int, default=4 if torch.cuda.is_available() else 0)
     args = p.parse_args()
     if args.smoke:
