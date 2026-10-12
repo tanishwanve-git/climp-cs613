@@ -96,16 +96,33 @@ def _load_climp(variant, image_size, device):
 
     @torch.no_grad()
     def encode_texts(texts, max_tokens=None, batch_size=64):
+        trunc = dict(truncation=max_tokens is not None, max_length=max_tokens)
+        lengths = [len(ids) for ids in tok(texts, **trunc)["input_ids"]]
         out = []
-        for i in range(0, len(texts), batch_size):
-            enc = tok(texts[i:i + batch_size], padding="longest", truncation=max_tokens is not None,
-                      max_length=max_tokens, return_tensors="pt").to(device)
+        for i, j in token_batches(lengths, batch_size):
+            enc = tok(texts[i:j], padding="longest", return_tensors="pt", **trunc).to(device)
             with autocast(device):
                 emb = model.encode_text(enc["input_ids"], enc["attention_mask"])
             out.append(F.normalize(emb.float(), dim=-1).cpu())
         return torch.cat(out)
 
     return Model(f"climp-{variant}", image_size, transform_image(image_size), encode_images, encode_texts, tok, model)
+
+
+def token_batches(lengths, max_batch=64, token_budget=4096):
+    """Consecutive (start, end) batches with at most max_batch texts and batch_size * longest <= token_budget.
+    Upstream encode_text keeps the hidden states of all Mamba layers (output_hidden_states=True), so memory grows
+    with batch x length; long DOCCI captions (up to ~300 tokens) need smaller batches than short captions."""
+    batches, start, longest = [], 0, 0
+    for i, n in enumerate(lengths):
+        longest_if_added = max(longest, n)
+        if i > start and ((i - start + 1) * longest_if_added > token_budget or i - start == max_batch):
+            batches.append((start, i))
+            start, longest_if_added = i, n
+        longest = longest_if_added
+    if lengths:
+        batches.append((start, len(lengths)))
+    return batches
 
 
 def _load_openclip(image_size, device):

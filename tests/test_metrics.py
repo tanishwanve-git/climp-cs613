@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from common import grid_shuffle
+from common import grid_shuffle, token_batches
 from metrics import alignment, csls, hubness, recall_at_k, uniformity
 
 
@@ -91,3 +91,14 @@ def test_e8_augment_is_padded_crop_or_flip():
     for i in range(16):
         windows = [padded[i, :, oy:oy + 32, ox:ox + 32] for oy in range(9) for ox in range(9)]
         assert any(torch.equal(y[i], w) or torch.equal(y[i], w.flip(-1)) for w in windows)
+
+
+def test_token_batches():
+    assert token_batches([10] * 130, max_batch=64) == [(0, 64), (64, 128), (128, 130)]  # short texts: plain batches
+    long = token_batches([300] * 40, max_batch=64, token_budget=4096)                    # 13 x 300 <= 4096
+    assert long[0] == (0, 13) and all(j - i <= 13 for i, j in long) and long[-1][1] == 40
+    mixed = [5, 5, 400, 5, 5]
+    covered = [k for i, j in token_batches(mixed, 64, 1000) for k in range(i, j)]
+    assert covered == list(range(5))                                                   # every text exactly once, in order
+    assert all((j - i) * max(mixed[i:j]) <= 1000 for i, j in token_batches(mixed, 64, 1000))
+    assert token_batches([5000], 64, 4096) == [(0, 1)]                                   # a single over-long text still runs

@@ -22,3 +22,5 @@ One line each. Added as decisions are made.
 - E8 augmentation runs on the GPU batch-wise: 4-px black padding + random 32x32 crop, horizontal flip (p = 0.5), then normalisation, then (shuffled condition) a fresh per-image patch permutation. Same operations as the torchvision pipeline; only the random stream differs. 20 epochs (the paper does not state its epoch count, so we compare the pattern, not exact values).
 - E3 full runs use ImageNet-V2/R/A/O (paper Table 2); CIFAR-10 is only a sanity check in the smoke run.
 - E8 loads CIFAR-10 from the HuggingFace parquet mirror (uoft-cs/cifar10), verified byte-identical (pixels, labels, order) to torchvision's copy; the original Toronto server ran at ~200 B/s.
+- CLIMP text batches are capped at ~4096 tokens (batch x longest caption), max 64 texts: upstream encode_text keeps all layers' hidden states (output_hidden_states=True), which ran out of T4 memory for long DOCCI captions at batch 64. Batching does not change the embeddings.
+- The Mamba-2 tokenizer pads on the left (Mamba-1 on the right); the E1 smoke check confirms padding="longest" gives the same embeddings as upstream's padding for both (min cosine 1.00000).
