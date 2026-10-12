@@ -47,12 +47,15 @@ compiling only if they fail a GPU self-test), then runs two queues in parallel, 
 
 | GPU 0 | GPU 1 |
 |---|---|
-| E1 → E2 → E3 → E4 | E6 → E8 → E5 → E7 |
+| stage 1: E1 → E2, stage 2: E3 → E4 | stage 1: E6 → E8, stage 2: E5 → E7 |
 
-CLIMP-dependent jobs (E3, E4, E5, E7) wait for the E1 README gate and are skipped if it fails. Only one process
+CLIMP-dependent jobs (E3, E4, E5, E7) wait for the E1 README gate and are skipped if it fails (when E1 is in the same run). Only one process
 loads a CLIMP model at a time (file lock), and peak RAM is printed every 5 min and stored in every result JSON.
 
 1. `MODE = "smoke"` → Save & Run All (~25 min). Check every job passes; set `E8_EPOCHS` from the E8 timing.
-2. `MODE = "full"` → Save & Run All (~1.5-2 h).
-3. Download `results_full.zip` from the Output tab, unzip it into this folder (it contains `results/`, including
-   `results/logs/`), then run `python src/make_results.py` to rebuild `results/tables/` and `results/figures/`.
+2. `MODE = "full"`, `STAGE = 1` → Save & Run All (~2 h): E1 (+ README gate), E2, E6, E8.
+3. Only if `E1.log` shows the gate passed: `STAGE = 2` → Save & Run All (~1-1.5 h): E3, E4, E5, E7.
+4. A job that failed can be re-run alone with `ONLY = ["E5"]` (E2 needs E1 in the same run); other results are kept.
+5. After every run download `results_<run>.zip` from the Output tab and unzip it into this folder (they all unpack
+   into `results/`, logs into `results/logs/`), then run `python src/make_results.py` to rebuild
+   `results/tables/` and `results/figures/` (missing experiments show as TODO).
