@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CLIP_MODELS = ["climp-mamba1", "climp-mamba2", "openclip-vitb16"]
 RES = ["224", "512", "896"]
 KS = ["1", "5", "10"]
-ZS_SETS = ["cifar10", "imagenetv2", "imagenet-r", "imagenet-a", "imagenet-o"]
+ZS_SETS = ["imagenetv2", "imagenet-r", "imagenet-a", "imagenet-o"]
 SC_SUBSETS = ["add_att", "add_obj", "replace_att", "replace_obj", "replace_rel", "swap_att", "swap_obj", "macro"]
 GRIDS = ["1", "2", "4", "8"]
 

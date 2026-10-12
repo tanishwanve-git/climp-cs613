@@ -1,0 +1,7 @@
+climp-mamba1: align 0.982 | unif img -3.18 txt -3.55 | hub img 1.55 txt 1.79
+  CSLS image_retrieval: R@1 38.2->42.7, R@5 70.5->74.5, R@10 81.8->84.7
+  CSLS text_retrieval: R@1 51.8->61.2, R@5 81.9->86.9, R@10 90.9->93.3
+openclip-vitb16: align 1.437 | unif img -2.72 txt -2.74 | hub img 1.68 txt 4.12
+  CSLS image_retrieval: R@1 58.0->62.1, R@5 84.6->87.3, R@10 91.2->92.9
+  CSLS text_retrieval: R@1 80.0->84.5, R@5 95.7->97.0, R@10 98.2->99.0
+saved /kaggle/working/climp-cs613/results/geometry.json

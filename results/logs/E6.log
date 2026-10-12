@@ -1,0 +1,64 @@
+/usr/local/lib/python3.13/dist-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/csms6s.py:13: UserWarning: Can not import selective_scan_cuda_oflex. This affects speed.
+  warnings.warn("Can not import selective_scan_cuda_oflex. This affects speed.")
+Can not import selective_scan_cuda_oflex. This affects speed.
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/csms6s.py:73: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+  @torch.cuda.amp.custom_fwd
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/csms6s.py:90: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
+  @torch.cuda.amp.custom_bwd
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/mamba2/ssd_combined.py:763: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+  @custom_fwd
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/mamba2/ssd_combined.py:841: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
+  @custom_bwd
+Unsupported operator aten::gelu encountered 22 time(s)
+Unsupported operator aten::mul encountered 21 time(s)
+Unsupported operator prim::PythonOp.CrossScanTritonF encountered 21 time(s)
+Unsupported operator prim::PythonOp.CrossMergeTritonF encountered 21 time(s)
+Unsupported operator aten::add encountered 42 time(s)
+The following submodules of the model were never called during the trace of the graph. They may be unused, or they were accessed by direct calls to .forward() or via other python methods. In the latter case they will have zeros for statistics, though their statistics will still contribute to their parent calling module.
+layers.0.blocks.0.drop_path, layers.0.blocks.1.drop_path, layers.1.blocks.0.drop_path, layers.1.blocks.1.drop_path, layers.2.blocks.0.drop_path, layers.2.blocks.1.drop_path, layers.2.blocks.10.drop_path, layers.2.blocks.11.drop_path, layers.2.blocks.12.drop_path, layers.2.blocks.13.drop_path, layers.2.blocks.14.drop_path, layers.2.blocks.2.drop_path, layers.2.blocks.3.drop_path, layers.2.blocks.4.drop_path, layers.2.blocks.5.drop_path, layers.2.blocks.6.drop_path, layers.2.blocks.7.drop_path, layers.2.blocks.8.drop_path, layers.2.blocks.9.drop_path, layers.3.blocks.0.drop_path, layers.3.blocks.1.drop_path
+Unsupported operator aten::gelu encountered 22 time(s)
+Unsupported operator aten::mul encountered 21 time(s)
+Unsupported operator prim::PythonOp.CrossScanTritonF encountered 21 time(s)
+Unsupported operator prim::PythonOp.CrossMergeTritonF encountered 21 time(s)
+Unsupported operator aten::add encountered 42 time(s)
+The following submodules of the model were never called during the trace of the graph. They may be unused, or they were accessed by direct calls to .forward() or via other python methods. In the latter case they will have zeros for statistics, though their statistics will still contribute to their parent calling module.
+layers.0.blocks.0.drop_path, layers.0.blocks.1.drop_path, layers.1.blocks.0.drop_path, layers.1.blocks.1.drop_path, layers.2.blocks.0.drop_path, layers.2.blocks.1.drop_path, layers.2.blocks.10.drop_path, layers.2.blocks.11.drop_path, layers.2.blocks.12.drop_path, layers.2.blocks.13.drop_path, layers.2.blocks.14.drop_path, layers.2.blocks.2.drop_path, layers.2.blocks.3.drop_path, layers.2.blocks.4.drop_path, layers.2.blocks.5.drop_path, layers.2.blocks.6.drop_path, layers.2.blocks.7.drop_path, layers.2.blocks.8.drop_path, layers.2.blocks.9.drop_path, layers.3.blocks.0.drop_path, layers.3.blocks.1.drop_path
+Unsupported operator aten::gelu encountered 22 time(s)
+Unsupported operator aten::mul encountered 21 time(s)
+Unsupported operator prim::PythonOp.CrossScanTritonF encountered 21 time(s)
+Unsupported operator prim::PythonOp.CrossMergeTritonF encountered 21 time(s)
+Unsupported operator aten::add encountered 42 time(s)
+The following submodules of the model were never called during the trace of the graph. They may be unused, or they were accessed by direct calls to .forward() or via other python methods. In the latter case they will have zeros for statistics, though their statistics will still contribute to their parent calling module.
+layers.0.blocks.0.drop_path, layers.0.blocks.1.drop_path, layers.1.blocks.0.drop_path, layers.1.blocks.1.drop_path, layers.2.blocks.0.drop_path, layers.2.blocks.1.drop_path, layers.2.blocks.10.drop_path, layers.2.blocks.11.drop_path, layers.2.blocks.12.drop_path, layers.2.blocks.13.drop_path, layers.2.blocks.14.drop_path, layers.2.blocks.2.drop_path, layers.2.blocks.3.drop_path, layers.2.blocks.4.drop_path, layers.2.blocks.5.drop_path, layers.2.blocks.6.drop_path, layers.2.blocks.7.drop_path, layers.2.blocks.8.drop_path, layers.2.blocks.9.drop_path, layers.3.blocks.0.drop_path, layers.3.blocks.1.drop_path
+Unsupported operator aten::gelu encountered 22 time(s)
+Unsupported operator aten::mul encountered 21 time(s)
+Unsupported operator prim::PythonOp.CrossScanTritonF encountered 21 time(s)
+Unsupported operator prim::PythonOp.CrossMergeTritonF encountered 21 time(s)
+Unsupported operator aten::add encountered 42 time(s)
+The following submodules of the model were never called during the trace of the graph. They may be unused, or they were accessed by direct calls to .forward() or via other python methods. In the latter case they will have zeros for statistics, though their statistics will still contribute to their parent calling module.
+layers.0.blocks.0.drop_path, layers.0.blocks.1.drop_path, layers.1.blocks.0.drop_path, layers.1.blocks.1.drop_path, layers.2.blocks.0.drop_path, layers.2.blocks.1.drop_path, layers.2.blocks.10.drop_path, layers.2.blocks.11.drop_path, layers.2.blocks.12.drop_path, layers.2.blocks.13.drop_path, layers.2.blocks.14.drop_path, layers.2.blocks.2.drop_path, layers.2.blocks.3.drop_path, layers.2.blocks.4.drop_path, layers.2.blocks.5.drop_path, layers.2.blocks.6.drop_path, layers.2.blocks.7.drop_path, layers.2.blocks.8.drop_path, layers.2.blocks.9.drop_path, layers.3.blocks.0.drop_path, layers.3.blocks.1.drop_path
+Unsupported operator aten::gelu encountered 22 time(s)
+Unsupported operator aten::mul encountered 21 time(s)
+Unsupported operator prim::PythonOp.CrossScanTritonF encountered 21 time(s)
+Unsupported operator prim::PythonOp.CrossMergeTritonF encountered 21 time(s)
+Unsupported operator aten::add encountered 42 time(s)
+The following submodules of the model were never called during the trace of the graph. They may be unused, or they were accessed by direct calls to .forward() or via other python methods. In the latter case they will have zeros for statistics, though their statistics will still contribute to their parent calling module.
+layers.0.blocks.0.drop_path, layers.0.blocks.1.drop_path, layers.1.blocks.0.drop_path, layers.1.blocks.1.drop_path, layers.2.blocks.0.drop_path, layers.2.blocks.1.drop_path, layers.2.blocks.10.drop_path, layers.2.blocks.11.drop_path, layers.2.blocks.12.drop_path, layers.2.blocks.13.drop_path, layers.2.blocks.14.drop_path, layers.2.blocks.2.drop_path, layers.2.blocks.3.drop_path, layers.2.blocks.4.drop_path, layers.2.blocks.5.drop_path, layers.2.blocks.6.drop_path, layers.2.blocks.7.drop_path, layers.2.blocks.8.drop_path, layers.2.blocks.9.drop_path, layers.3.blocks.0.drop_path, layers.3.blocks.1.drop_path
+vmamba-b @224: activation 36.4 MB, peak 383.7 MB, 15.4 GFLOPs
+vmamba-b @384: activation 105.4 MB, peak 454.1 MB, 45.1 GFLOPs
+vmamba-b @512: activation 186.1 MB, peak 535.8 MB, 80.2 GFLOPs
+vmamba-b @768: activation 417.7 MB, peak 772.1 MB, 180.5 GFLOPs
+vmamba-b @896: activation 573.5 MB, peak 930.2 MB, 245.7 GFLOPs
+vit-b16 @224: activation 6.3 MB, peak 521.5 MB, 17.6 GFLOPs
+vit-b16 @384: activation 15.9 MB, peak 531.4 MB, 55.5 GFLOPs
+vit-b16 @512: activation 24.1 MB, peak 540.3 MB, 107.1 GFLOPs
+vit-b16 @768: activation 55.0 MB, peak 577.7 MB, 295.3 GFLOPs
+vit-b16 @896: activation 73.7 MB, peak 588.3 MB, 450.0 GFLOPs
+vit-b16-eager @224: activation 6.3 MB, peak 521.2 MB, 17.6 GFLOPs
+vit-b16-eager @384: activation 33.7 MB, peak 540.4 MB, 55.5 GFLOPs
+vit-b16-eager @512: activation 89.0 MB, peak 602.5 MB, 107.1 GFLOPs
+vit-b16-eager @768: activation 402.7 MB, peak 922.1 MB, 295.3 GFLOPs
+vit-b16-eager @896: activation 726.3 MB, peak 1239.2 MB, 450.0 GFLOPs
+saved /kaggle/working/climp-cs613/results/efficiency.json

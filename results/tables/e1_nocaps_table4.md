@@ -1,0 +1,15 @@
+### E1 NoCaps R@5 vs resolution (paper Table 4)
+
+| Model | Res | Image R@5 ours | paper 'I→T' | Text R@5 ours | paper 'T→I' |
+|---|---|---|---|---|---|
+| climp-mamba1 | 224 | 70.5 | 70.5 | 81.9 | 81.9 |
+| climp-mamba1 | 512 | 66.9 | 66.9 | 72.7 | 72.7 |
+| climp-mamba1 | 896 | 57.1 | 57.1 | 53.5 | 53.5 |
+| climp-mamba2 | 224 | 70.2 | 70.2 | 81.2 | 81.3 |
+| climp-mamba2 | 512 | 66.4 | 66.4 | 72.4 | 72.4 |
+| climp-mamba2 | 896 | 57.1 | 57.1 | 53.9 | 53.8 |
+| openclip-vitb16 | 224 | 84.6 | – | 95.7 | – |
+| openclip-vitb16 | 512 | 82.2 | – | 93.8 | – |
+| openclip-vitb16 | 896 | 67.6 | – | 77.2 | – |
+
+Paper Table 4 labels its columns I→T / T→I, but its values match the README's image / text retrieval R@5.

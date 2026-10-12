@@ -1,0 +1,29 @@
+Fetching 7 files:   0%|          | 0/7 [00:00<?, ?it/s]Fetching 7 files: 100%|██████████| 7/7 [00:00<00:00, 326.52it/s]
+/usr/local/lib/python3.13/dist-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/csms6s.py:13: UserWarning: Can not import selective_scan_cuda_oflex. This affects speed.
+  warnings.warn("Can not import selective_scan_cuda_oflex. This affects speed.")
+Can not import selective_scan_cuda_oflex. This affects speed.
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/csms6s.py:73: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+  @torch.cuda.amp.custom_fwd
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/csms6s.py:90: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
+  @torch.cuda.amp.custom_bwd
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/mamba2/ssd_combined.py:763: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+  @custom_fwd
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/mamba2/ssd_combined.py:841: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
+  @custom_bwd
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 552.06it/s]
+Loading weights:   0%|          | 0/482 [00:00<?, ?it/s]Loading weights:  11%|█         | 52/482 [00:00<00:00, 485.80it/s]Loading weights:  26%|██▌       | 123/482 [00:00<00:00, 606.57it/s]Loading weights:  41%|████      | 197/482 [00:00<00:00, 629.38it/s]Loading weights:  54%|█████▍    | 260/482 [00:00<00:00, 547.33it/s]Loading weights: 100%|██████████| 482/482 [00:00<00:00, 956.49it/s]
+climp-mamba1 G=2 imagenetv2: top1 33.1 top5 63.2 (n=10000, 1000 classes, 80 templates)
+climp-mamba1 G=4 imagenetv2: top1 25.8 top5 53.7 (n=10000, 1000 classes, 80 templates)
+climp-mamba1 G=8 imagenetv2: top1 10.7 top5 28.4 (n=10000, 1000 classes, 80 templates)
+saved /kaggle/working/climp-cs613/results/zeroshot_climp-mamba1_g2.json
+saved /kaggle/working/climp-cs613/results/zeroshot_climp-mamba1_g4.json
+saved /kaggle/working/climp-cs613/results/zeroshot_climp-mamba1_g8.json
+[openclip] image_size=224 positional_embedding=(197, 768) (expect (197, 768))
+openclip-vitb16 G=2 imagenetv2: top1 54.4 top5 81.3 (n=10000, 1000 classes, 80 templates)
+openclip-vitb16 G=4 imagenetv2: top1 43.4 top5 71.6 (n=10000, 1000 classes, 80 templates)
+openclip-vitb16 G=8 imagenetv2: top1 19.7 top5 42.5 (n=10000, 1000 classes, 80 templates)
+saved /kaggle/working/climp-cs613/results/zeroshot_openclip-vitb16_g2.json
+saved /kaggle/working/climp-cs613/results/zeroshot_openclip-vitb16_g4.json
+saved /kaggle/working/climp-cs613/results/zeroshot_openclip-vitb16_g8.json

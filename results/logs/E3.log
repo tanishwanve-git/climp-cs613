@@ -1,0 +1,30 @@
+Fetching 7 files:   0%|          | 0/7 [00:00<?, ?it/s]Fetching 7 files:  14%|█▍        | 1/7 [00:00<00:04,  1.31it/s]Fetching 7 files:  57%|█████▋    | 4/7 [00:08<00:06,  2.22s/it]Fetching 7 files:  71%|███████▏  | 5/7 [00:10<00:04,  2.18s/it]Fetching 7 files:  86%|████████▌ | 6/7 [00:12<00:02,  2.02s/it]Fetching 7 files: 100%|██████████| 7/7 [00:14<00:00,  2.06s/it]Fetching 7 files: 100%|██████████| 7/7 [00:14<00:00,  2.04s/it]
+Fetching 7 files:   0%|          | 0/7 [00:00<?, ?it/s]Fetching 7 files:  14%|█▍        | 1/7 [00:00<00:04,  1.29it/s]Fetching 7 files:  43%|████▎     | 3/7 [00:00<00:00,  4.05it/s]Fetching 7 files:  71%|███████▏  | 5/7 [00:10<00:05,  2.55s/it]Fetching 7 files:  86%|████████▌ | 6/7 [00:10<00:01,  1.97s/it]Fetching 7 files: 100%|██████████| 7/7 [00:14<00:00,  2.60s/it]Fetching 7 files: 100%|██████████| 7/7 [00:14<00:00,  2.14s/it]
+Fetching 7 files:   0%|          | 0/7 [00:00<?, ?it/s]Fetching 7 files:  14%|█▍        | 1/7 [00:00<00:04,  1.33it/s]Fetching 7 files:  57%|█████▋    | 4/7 [00:07<00:06,  2.09s/it]Fetching 7 files:  86%|████████▌ | 6/7 [00:08<00:01,  1.24s/it]Fetching 7 files: 100%|██████████| 7/7 [00:08<00:00,  1.18s/it]
+Fetching 7 files:   0%|          | 0/7 [00:00<?, ?it/s]Fetching 7 files:  14%|█▍        | 1/7 [00:00<00:04,  1.28it/s]Fetching 7 files:  29%|██▊       | 2/7 [00:00<00:01,  2.57it/s]Fetching 7 files:  43%|████▎     | 3/7 [00:03<00:04,  1.20s/it]Fetching 7 files:  57%|█████▋    | 4/7 [00:06<00:06,  2.11s/it]Fetching 7 files:  71%|███████▏  | 5/7 [00:06<00:02,  1.44s/it]Fetching 7 files:  86%|████████▌ | 6/7 [00:08<00:01,  1.67s/it]Fetching 7 files: 100%|██████████| 7/7 [00:13<00:00,  2.73s/it]Fetching 7 files: 100%|██████████| 7/7 [00:13<00:00,  1.98s/it]
+/usr/local/lib/python3.13/dist-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/csms6s.py:13: UserWarning: Can not import selective_scan_cuda_oflex. This affects speed.
+  warnings.warn("Can not import selective_scan_cuda_oflex. This affects speed.")
+Can not import selective_scan_cuda_oflex. This affects speed.
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/csms6s.py:73: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+  @torch.cuda.amp.custom_fwd
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/csms6s.py:90: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
+  @torch.cuda.amp.custom_bwd
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/mamba2/ssd_combined.py:763: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+  @custom_fwd
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/mamba2/ssd_combined.py:841: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
+  @custom_bwd
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files:  50%|█████     | 1/2 [00:06<00:06,  6.88s/it]Fetching 2 files: 100%|██████████| 2/2 [00:30<00:00, 16.56s/it]Fetching 2 files: 100%|██████████| 2/2 [00:30<00:00, 15.11s/it]
+Loading weights:   0%|          | 0/482 [00:00<?, ?it/s]Loading weights:  45%|████▌     | 217/482 [00:00<00:00, 2168.94it/s]Loading weights:  90%|█████████ | 434/482 [00:00<00:00, 2085.01it/s]Loading weights: 100%|██████████| 482/482 [00:00<00:00, 2132.35it/s]
+climp-mamba1 G=1 imagenetv2: top1 37.6 top5 68.4 (n=10000, 1000 classes, 80 templates)
+climp-mamba1 G=1 imagenet-r: top1 46.6 top5 74.5 (n=30000, 200 classes, 80 templates)
+climp-mamba1 G=1 imagenet-a: top1 15.6 top5 45.3 (n=7500, 200 classes, 80 templates)
+climp-mamba1 G=1 imagenet-o: top1 49.8 top5 78.8 (n=2000, 200 classes, 80 templates)
+saved /kaggle/working/climp-cs613/results/zeroshot_climp-mamba1_g1.json
+[openclip] image_size=224 positional_embedding=(197, 768) (expect (197, 768))
+openclip-vitb16 G=1 imagenetv2: top1 62.3 top5 87.0 (n=10000, 1000 classes, 80 templates)
+openclip-vitb16 G=1 imagenet-r: top1 80.6 top5 94.0 (n=30000, 200 classes, 80 templates)
+openclip-vitb16 G=1 imagenet-a: top1 38.2 top5 70.6 (n=7500, 200 classes, 80 templates)
+openclip-vitb16 G=1 imagenet-o: top1 46.4 top5 77.3 (n=2000, 200 classes, 80 templates)
+saved /kaggle/working/climp-cs613/results/zeroshot_openclip-vitb16_g1.json

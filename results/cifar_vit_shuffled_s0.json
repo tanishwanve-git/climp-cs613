@@ -1,0 +1,48 @@
+{
+  "config": {
+    "args": {
+      "smoke": false,
+      "out_dir": null,
+      "device": "cuda",
+      "models": [
+        "vmamba",
+        "vit"
+      ],
+      "conds": [
+        "regular",
+        "shuffled"
+      ],
+      "seeds": [
+        0,
+        1,
+        2
+      ],
+      "epochs": 20,
+      "n_train": null,
+      "n_test": null
+    },
+    "experiment": "cifar_bias",
+    "model": "vit",
+    "condition": "shuffled",
+    "seed": 0,
+    "params": 347722,
+    "n_train": 49920,
+    "n_test": 10000,
+    "versions": {
+      "torch": "2.10.0+cu126",
+      "transformers": "5.16.1",
+      "open_clip": "3.3.0",
+      "timm": "1.0.29",
+      "mamba_ssm": "2.3.2.post1"
+    },
+    "gpu": "Tesla T4",
+    "peak_ram_gb": 2.52,
+    "git": "d2d4d433d893ec1fec74701055800bc3a6b97dbc",
+    "upstream_git": "3ff1279bb87f905596e6187f0e4a14f2cd28e818",
+    "seconds": 128.7
+  },
+  "metrics": {
+    "train_loss": 0.9146286845207214,
+    "test_acc": 0.6494
+  }
+}

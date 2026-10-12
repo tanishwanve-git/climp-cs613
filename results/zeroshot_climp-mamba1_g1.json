@@ -1,0 +1,64 @@
+{
+  "config": {
+    "args": {
+      "smoke": false,
+      "out_dir": null,
+      "device": "cuda",
+      "models": [
+        "climp-mamba1",
+        "openclip-vitb16"
+      ],
+      "datasets": [
+        "imagenetv2",
+        "imagenet-r",
+        "imagenet-a",
+        "imagenet-o"
+      ],
+      "shuffle_grid": [
+        1
+      ],
+      "seed": 0,
+      "batch_size": 64,
+      "workers": 4,
+      "n_smoke": 128
+    },
+    "experiment": "zeroshot",
+    "model": "climp-mamba1",
+    "image_size": 224,
+    "shuffle_grid": 1,
+    "versions": {
+      "torch": "2.10.0+cu126",
+      "transformers": "5.16.1",
+      "open_clip": "3.3.0",
+      "timm": "1.0.29",
+      "mamba_ssm": "2.3.2.post1"
+    },
+    "gpu": "Tesla T4",
+    "peak_ram_gb": 7.63,
+    "git": "d2d4d433d893ec1fec74701055800bc3a6b97dbc",
+    "upstream_git": "3ff1279bb87f905596e6187f0e4a14f2cd28e818",
+    "seconds": 3422.4
+  },
+  "metrics": {
+    "imagenetv2": {
+      "top1": 0.3757,
+      "top5": 0.6838,
+      "n": 10000
+    },
+    "imagenet-r": {
+      "top1": 0.46596666666666664,
+      "top5": 0.7449666666666667,
+      "n": 30000
+    },
+    "imagenet-a": {
+      "top1": 0.15626666666666666,
+      "top5": 0.4532,
+      "n": 7500
+    },
+    "imagenet-o": {
+      "top1": 0.498,
+      "top5": 0.788,
+      "n": 2000
+    }
+  }
+}

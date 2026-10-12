@@ -1,0 +1,48 @@
+{
+  "config": {
+    "args": {
+      "smoke": false,
+      "out_dir": null,
+      "device": "cuda",
+      "models": [
+        "climp-mamba1",
+        "openclip-vitb16"
+      ],
+      "workers": 4
+    },
+    "experiment": "sugarcrepe",
+    "model": "openclip-vitb16",
+    "image_size": 224,
+    "n_items": {
+      "add_att": 692,
+      "add_obj": 2062,
+      "replace_att": 788,
+      "replace_obj": 1652,
+      "replace_rel": 1406,
+      "swap_att": 666,
+      "swap_obj": 245
+    },
+    "versions": {
+      "torch": "2.10.0+cu126",
+      "transformers": "5.16.1",
+      "open_clip": "3.3.0",
+      "timm": "1.0.29",
+      "mamba_ssm": "2.3.2.post1"
+    },
+    "gpu": "Tesla T4",
+    "peak_ram_gb": 7.21,
+    "git": "d2d4d433d893ec1fec74701055800bc3a6b97dbc",
+    "upstream_git": "3ff1279bb87f905596e6187f0e4a14f2cd28e818",
+    "seconds": 21.9
+  },
+  "metrics": {
+    "add_att": 0.8179190754890442,
+    "add_obj": 0.8923375606536865,
+    "replace_att": 0.8502538204193115,
+    "replace_obj": 0.9612590670585632,
+    "replace_rel": 0.7112375497817993,
+    "swap_att": 0.6771771907806396,
+    "swap_obj": 0.6489796042442322,
+    "macro": 0.7941662669181824
+  }
+}

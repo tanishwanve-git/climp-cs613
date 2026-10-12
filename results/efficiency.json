@@ -1,0 +1,127 @@
+{
+  "config": {
+    "args": {
+      "smoke": false,
+      "out_dir": null,
+      "device": "cuda",
+      "resolutions": [
+        224,
+        384,
+        512,
+        768,
+        896
+      ]
+    },
+    "experiment": "efficiency",
+    "versions": {
+      "torch": "2.10.0+cu126",
+      "transformers": "5.16.1",
+      "open_clip": "3.3.0",
+      "timm": "1.0.29",
+      "mamba_ssm": "2.3.2.post1"
+    },
+    "gpu": "Tesla T4",
+    "peak_ram_gb": 2.51,
+    "git": "d2d4d433d893ec1fec74701055800bc3a6b97dbc",
+    "upstream_git": "3ff1279bb87f905596e6187f0e4a14f2cd28e818",
+    "seconds": 141.9
+  },
+  "metrics": {
+    "vmamba-b": {
+      "224": {
+        "activation_mb": 36.4404296875,
+        "peak_mb": 383.7236328125,
+        "gflops": 15.357920256,
+        "params_m": 87.5328
+      },
+      "384": {
+        "activation_mb": 105.41796875,
+        "peak_mb": 454.064453125,
+        "gflops": 45.133479936,
+        "params_m": 87.5328
+      },
+      "512": {
+        "activation_mb": 186.12890625,
+        "peak_mb": 535.837890625,
+        "gflops": 80.23729766400001,
+        "params_m": 87.5328
+      },
+      "768": {
+        "activation_mb": 417.66015625,
+        "peak_mb": 772.119140625,
+        "gflops": 180.533919744,
+        "params_m": 87.5328
+      },
+      "896": {
+        "activation_mb": 573.48046875,
+        "peak_mb": 930.189453125,
+        "gflops": 245.726724096,
+        "params_m": 87.5328
+      }
+    },
+    "vit-b16": {
+      "224": {
+        "activation_mb": 6.30859375,
+        "peak_mb": 521.46337890625,
+        "gflops": 17.581972224,
+        "params_m": 85.798656
+      },
+      "384": {
+        "activation_mb": 15.880859375,
+        "peak_mb": 531.36572265625,
+        "gflops": 55.538974464,
+        "params_m": 85.798656
+      },
+      "512": {
+        "activation_mb": 24.1455078125,
+        "peak_mb": 540.34521484375,
+        "gflops": 107.125522176,
+        "params_m": 85.798656
+      },
+      "768": {
+        "activation_mb": 55.01171875,
+        "peak_mb": 577.72314453125,
+        "gflops": 295.284293376,
+        "params_m": 85.798656
+      },
+      "896": {
+        "activation_mb": 73.7138671875,
+        "peak_mb": 588.29736328125,
+        "gflops": 449.975910144,
+        "params_m": 85.798656
+      }
+    },
+    "vit-b16-eager": {
+      "224": {
+        "activation_mb": 6.30859375,
+        "peak_mb": 521.21337890625,
+        "gflops": 17.581972224,
+        "params_m": 85.798656
+      },
+      "384": {
+        "activation_mb": 33.6767578125,
+        "peak_mb": 540.37841796875,
+        "gflops": 55.538974464,
+        "params_m": 85.798656
+      },
+      "512": {
+        "activation_mb": 88.9580078125,
+        "peak_mb": 602.53076171875,
+        "gflops": 107.125522176,
+        "params_m": 85.798656
+      },
+      "768": {
+        "activation_mb": 402.74853515625,
+        "peak_mb": 922.09228515625,
+        "gflops": 295.284293376,
+        "params_m": 85.798656
+      },
+      "896": {
+        "activation_mb": 726.26025390625,
+        "peak_mb": 1239.1669921875,
+        "gflops": 449.975910144,
+        "params_m": 85.798656
+      }
+    }
+  }
+}

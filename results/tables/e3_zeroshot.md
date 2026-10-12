@@ -1,0 +1,12 @@
+### E3 Zero-shot classification and robustness (paper Table 2)
+
+| Model | Dataset | Top-1 ours | Top-1 paper | Top-5 ours | Top-5 paper |
+|---|---|---|---|---|---|
+| climp-mamba1 | imagenetv2 | 37.6 | 37.5 | 68.4 | 68.4 |
+| climp-mamba1 | imagenet-r | 46.6 | 46.2 | 74.5 | 74.5 |
+| climp-mamba1 | imagenet-a | 15.6 | 15.5 | 45.3 | 45.3 |
+| climp-mamba1 | imagenet-o | 49.8 | 48.1 | 78.8 | 78.8 |
+| openclip-vitb16 | imagenetv2 | 62.3 | – | 87.0 | – |
+| openclip-vitb16 | imagenet-r | 80.6 | – | 94.0 | – |
+| openclip-vitb16 | imagenet-a | 38.2 | – | 70.6 | – |
+| openclip-vitb16 | imagenet-o | 46.4 | 42.3 | 77.3 | – |

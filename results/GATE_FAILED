@@ -1,0 +1,1 @@
+{"pass": false, "diff_pp": {"image_retrieval@1": 0.01, "image_retrieval@5": -0.04, "image_retrieval@10": 0.05, "text_retrieval@1": 0.02, "text_retrieval@5": -0.06, "text_retrieval@10": -0.61}}
