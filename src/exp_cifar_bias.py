@@ -4,8 +4,10 @@ The whole dataset lives on the GPU and augmentation runs there batch-wise (Kaggl
 
   python src/exp_cifar_bias.py --models vmamba vit --conds regular shuffled --seeds 0 1 2 --epochs 20
 """
+import io
 import time
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torchvision
@@ -28,9 +30,22 @@ def build(name):
 
 
 def load_cifar(train, n, device):
-    ds = torchvision.datasets.CIFAR10(DATA_DIR / "cifar10", train=train, download=True)
-    x = torch.from_numpy(ds.data[:n]).permute(0, 3, 1, 2).contiguous().to(device)  # uint8 [N, 3, 32, 32]
-    return x, torch.tensor(ds.targets[:n], device=device)
+    """CIFAR-10 from the HuggingFace parquet mirror (byte-identical to torchvision's copy; the original Toronto server
+    can be extremely slow). Decoded once and cached as uint8 arrays."""
+    split = "train" if train else "test"
+    cache = DATA_DIR / "cifar10" / f"{split}.npz"
+    if not cache.exists():
+        import pyarrow.parquet as pq
+        from huggingface_hub import hf_hub_download
+        from PIL import Image
+        table = pq.read_table(hf_hub_download("uoft-cs/cifar10", f"plain_text/{split}-00000-of-00001.parquet",
+                                              repo_type="dataset"))
+        images = np.stack([np.array(Image.open(io.BytesIO(d["bytes"])).convert("RGB")) for d in table.column("img").to_pylist()])
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(cache, x=images, y=np.array(table.column("label").to_pylist()))
+    data = np.load(cache)
+    x = torch.from_numpy(data["x"][:n]).permute(0, 3, 1, 2).contiguous().to(device)  # uint8 [N, 3, 32, 32]
+    return x, torch.from_numpy(data["y"][:n]).long().to(device)
 
 
 def normalize(x):
