@@ -230,7 +230,7 @@ def cmd_check(args):
     report["cached_text_path_min_cos"] = (ours * ref).sum(-1).min().item()
     print(f"[check 3] cached features + projection vs upstream encode_text: min cos {report['cached_text_path_min_cos']:.5f}")
     assert report["cached_text_path_min_cos"] > 0.999
-    del backbone, climp
+    del backbone, climp, shim, proj, ours, ref  # shim holds the 1.4B text model; free it before the probe
     torch.cuda.empty_cache()
 
     report["probe"] = []
