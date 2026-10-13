@@ -1,0 +1,67 @@
+{
+  "config": {
+    "args": {
+      "smoke": false,
+      "out_dir": "results_trained",
+      "device": "cuda",
+      "models": [
+        "climp-ours"
+      ],
+      "resolution": 224
+    },
+    "experiment": "geometry",
+    "sizes": {
+      "climp-ours": {
+        "n_images": 4500,
+        "n_texts": 45000
+      }
+    },
+    "versions": {
+      "torch": "2.10.0+cu126",
+      "transformers": "5.16.1",
+      "open_clip": "3.3.0",
+      "timm": "1.0.29",
+      "mamba_ssm": "2.3.2.post1"
+    },
+    "gpu": "Tesla T4",
+    "peak_ram_gb": 3.33,
+    "git": "7b7daa0e2e23a9973264d399d9e7aba0ebc536c5",
+    "upstream_git": "3ff1279bb87f905596e6187f0e4a14f2cd28e818",
+    "seconds": 24.3
+  },
+  "metrics": {
+    "climp-ours": {
+      "alignment": 1.206040620803833,
+      "uniformity_image": -3.4370415210723877,
+      "uniformity_text": -2.669274091720581,
+      "hubness_image": 19.66256579216798,
+      "hubness_text": 2.2372863096088276,
+      "csls": {
+        "image_retrieval": {
+          "before": {
+            "1": 0.11551111191511154,
+            "5": 0.2967333197593689,
+            "10": 0.397599995136261
+          },
+          "after": {
+            "1": 0.13120000064373016,
+            "5": 0.32697778940200806,
+            "10": 0.4322222173213959
+          }
+        },
+        "text_retrieval": {
+          "before": {
+            "1": 0.19866666197776794,
+            "5": 0.4462222158908844,
+            "10": 0.5815555453300476
+          },
+          "after": {
+            "1": 0.24933333694934845,
+            "5": 0.5302222371101379,
+            "10": 0.6615555286407471
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "config": {
+    "args": {
+      "smoke": false,
+      "out_dir": "results_trained",
+      "device": "cuda",
+      "models": [
+        "climp-ours"
+      ],
+      "resolution": 896,
+      "tokens": [
+        "full"
+      ],
+      "workers": 4
+    },
+    "experiment": "docci",
+    "model": "climp-ours",
+    "image_size": 896,
+    "n_pairs": 5000,
+    "tokens": {
+      "mean": 142.6396026611328,
+      "frac_over_77": 0.9449999928474426,
+      "frac_over_154": 0.33739998936653137,
+      "max": 578
+    },
+    "versions": {
+      "torch": "2.10.0+cu126",
+      "transformers": "5.16.1",
+      "open_clip": "3.3.0",
+      "timm": "1.0.29",
+      "mamba_ssm": "2.3.2.post1"
+    },
+    "gpu": "Tesla T4",
+    "peak_ram_gb": 6.89,
+    "git": "7b7daa0e2e23a9973264d399d9e7aba0ebc536c5",
+    "upstream_git": "3ff1279bb87f905596e6187f0e4a14f2cd28e818",
+    "seconds": 2408.9
+  },
+  "metrics": {
+    "full": {
+      "image_retrieval": {
+        "1": 0.02759999968111515,
+        "5": 0.09839999675750732,
+        "10": 0.15639999508857727
+      },
+      "text_retrieval": {
+        "1": 0.025200000032782555,
+        "5": 0.08420000225305557,
+        "10": 0.12700000405311584
+      }
+    }
+  }
+}

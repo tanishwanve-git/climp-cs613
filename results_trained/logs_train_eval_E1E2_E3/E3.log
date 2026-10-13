@@ -1,0 +1,24 @@
+Fetching 7 files:   0%|          | 0/7 [00:00<?, ?it/s]Fetching 7 files:  14%|█▍        | 1/7 [00:00<00:03,  1.50it/s]Fetching 7 files:  57%|█████▋    | 4/7 [00:04<00:03,  1.03s/it]Fetching 7 files:  71%|███████▏  | 5/7 [00:06<00:02,  1.41s/it]Fetching 7 files: 100%|██████████| 7/7 [00:06<00:00,  1.11it/s]Fetching 7 files: 100%|██████████| 7/7 [00:06<00:00,  1.01it/s]
+Fetching 7 files:   0%|          | 0/7 [00:00<?, ?it/s]Fetching 7 files:  14%|█▍        | 1/7 [00:00<00:03,  1.59it/s]Fetching 7 files:  57%|█████▋    | 4/7 [00:06<00:04,  1.64s/it]Fetching 7 files:  71%|███████▏  | 5/7 [00:10<00:04,  2.30s/it]Fetching 7 files: 100%|██████████| 7/7 [00:10<00:00,  1.32s/it]Fetching 7 files: 100%|██████████| 7/7 [00:10<00:00,  1.49s/it]
+Fetching 7 files:   0%|          | 0/7 [00:00<?, ?it/s]Fetching 7 files:  14%|█▍        | 1/7 [00:00<00:03,  1.62it/s]Fetching 7 files:  57%|█████▋    | 4/7 [00:07<00:06,  2.03s/it]Fetching 7 files: 100%|██████████| 7/7 [00:07<00:00,  1.10s/it]
+Fetching 7 files:   0%|          | 0/7 [00:00<?, ?it/s]Fetching 7 files:  14%|█▍        | 1/7 [00:00<00:04,  1.27it/s]Fetching 7 files:  43%|████▎     | 3/7 [00:02<00:03,  1.08it/s]Fetching 7 files:  71%|███████▏  | 5/7 [00:03<00:01,  1.65it/s]Fetching 7 files:  86%|████████▌ | 6/7 [00:04<00:00,  1.13it/s]Fetching 7 files: 100%|██████████| 7/7 [00:05<00:00,  1.40it/s]Fetching 7 files: 100%|██████████| 7/7 [00:05<00:00,  1.33it/s]
+/usr/local/lib/python3.13/dist-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/csms6s.py:13: UserWarning: Can not import selective_scan_cuda_oflex. This affects speed.
+  warnings.warn("Can not import selective_scan_cuda_oflex. This affects speed.")
+Can not import selective_scan_cuda_oflex. This affects speed.
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/csms6s.py:73: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+  @torch.cuda.amp.custom_fwd
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/csms6s.py:90: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
+  @torch.cuda.amp.custom_bwd
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/mamba2/ssd_combined.py:763: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+  @custom_fwd
+/kaggle/working/climp-cs613/CLIMP/models/vmamba/mamba2/ssd_combined.py:841: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
+  @custom_bwd
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files:  50%|█████     | 1/2 [00:09<00:09,  9.55s/it]Fetching 2 files: 100%|██████████| 2/2 [00:29<00:00, 15.76s/it]Fetching 2 files: 100%|██████████| 2/2 [00:29<00:00, 14.83s/it]
+Loading weights:   0%|          | 0/482 [00:00<?, ?it/s]Loading weights:  50%|█████     | 243/482 [00:00<00:00, 2386.19it/s]Loading weights: 100%|██████████| 482/482 [00:00<00:00, 1635.74it/s]Loading weights: 100%|██████████| 482/482 [00:00<00:00, 1715.91it/s]
+climp-ours G=1 imagenetv2: top1 13.9 top5 34.4 (n=10000, 1000 classes, 80 templates)
+climp-ours G=1 imagenet-r: top1 13.2 top5 29.0 (n=30000, 200 classes, 80 templates)
+climp-ours G=1 imagenet-a: top1 7.6 top5 26.0 (n=7500, 200 classes, 80 templates)
+climp-ours G=1 imagenet-o: top1 22.5 top5 48.3 (n=2000, 200 classes, 80 templates)
+saved results_trained/zeroshot_climp-ours_g1.json

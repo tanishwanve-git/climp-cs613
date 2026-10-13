@@ -1,0 +1,63 @@
+{
+  "config": {
+    "args": {
+      "cmd": "train",
+      "smoke": false,
+      "device": "cuda",
+      "workers": 4,
+      "part": 0,
+      "parts": 1,
+      "epochs": 4,
+      "batch_size": 48,
+      "lr": 5e-05,
+      "wd": 0.1,
+      "warmup": 500,
+      "grad_ckpt": false,
+      "seed": 0,
+      "max_hours": 7.0,
+      "check_every_min": 45,
+      "log_every": 25,
+      "resume": false,
+      "no_upload": false
+    },
+    "experiment": "train_climp",
+    "n_train": 118287,
+    "world": 2,
+    "global_batch": 96,
+    "steps_per_epoch": 1232,
+    "total_steps": 4928,
+    "finished": true,
+    "versions": {
+      "torch": "2.10.0+cu126",
+      "transformers": "5.16.1",
+      "open_clip": "3.3.0",
+      "timm": "1.0.29",
+      "mamba_ssm": "2.3.2.post1"
+    },
+    "gpu": "Tesla T4",
+    "peak_ram_gb": 6.22,
+    "git": "4592417b36c8429375156a112ebe8bd343bc36a4",
+    "upstream_git": "3ff1279bb87f905596e6187f0e4a14f2cd28e818",
+    "seconds": 17086.3
+  },
+  "metrics": {
+    "last": {
+      "kind": "final",
+      "step": 4928,
+      "epoch": 4.0,
+      "hours": 4.734,
+      "metrics": {
+        "image_retrieval": {
+          "1": 0.3594000041484833,
+          "5": 0.7146000266075134,
+          "10": 0.8578000068664551
+        },
+        "text_retrieval": {
+          "1": 0.42399999499320984,
+          "5": 0.7609999775886536,
+          "10": 0.8610000014305115
+        }
+      }
+    }
+  }
+}

@@ -182,9 +182,10 @@ def cifar(res, paper, out):
 
 # ---------------------------------------------------------------- figures (slide-ready; 16:9 friendly)
 INK, INK2, MUTED, GRID, PAPER = "#0b0b0b", "#52514e", "#8a8984", "#e6e5e1", "#8a8984"
-COLOR = {"climp-mamba1": "#2a78d6", "climp-mamba2": "#1baf7a", "openclip-vitb16": "#eb6834",
+COLOR = {"climp-mamba1": "#2a78d6", "climp-mamba2": "#2a78d6", "climp-ours": "#1baf7a", "openclip-vitb16": "#eb6834",
          "vmamba-b": "#2a78d6", "vit-b16": "#eb6834", "vit-b16-eager": "#eb6834", "vmamba": "#2a78d6", "vit": "#eb6834"}
-NAME = {"climp-mamba1": "CLIMP-Mamba1", "climp-mamba2": "CLIMP-Mamba2", "openclip-vitb16": "OpenCLIP ViT-B/16",
+NAME = {"climp-mamba1": "CLIMP-Mamba1", "climp-mamba2": "CLIMP-Mamba2", "climp-ours": "CLIMP retrained by us (COCO)",
+        "openclip-vitb16": "OpenCLIP ViT-B/16",
         "vmamba-b": "VMamba-B (CLIMP)", "vit-b16": "ViT-B/16, fused attention", "vit-b16-eager": "ViT-B/16, eager attention",
         "vmamba": "VMamba (0.33M)", "vit": "ViT (0.35M)"}
 plt.rcParams.update({
@@ -225,7 +226,9 @@ def fig_nocaps(res, paper):
         for m in CLIP_MODELS:
             ys = [pct(get(load(res, f"nocaps_{m}_{r}"), task, "5")) for r in RES]
             if any(y is not None for y in ys):
-                ax.plot(xs, ys, color=COLOR[m], marker="o", label=NAME[m])
+                dashed = m == "climp-mamba2"
+                ax.plot(xs, ys, "--" if dashed else "-", color=COLOR[m], marker="o", mfc="white" if dashed else COLOR[m],
+                        label=NAME[m])
                 end_label(ax, xs[-1], ys[-1], NAME[m], COLOR[m], dy={"climp-mamba1": 7, "climp-mamba2": -7}.get(m, 0))
         ax.set_xticks(xs, [f"{x}×{x}" for x in xs]), ax.set_xlim(180, 1150), ax.set_title(title)
         ax.set_xlabel("input resolution (trained at 224)")
@@ -466,6 +469,111 @@ FIGURES = {"fig1_nocaps_resolution": fig_nocaps, "fig2_efficiency": fig_efficien
            "fig7_sugarcrepe": fig_sugarcrepe, "fig8_csls": fig_csls, "fig9_zeroshot": fig_zeroshot}
 
 
+
+# ---------------------------------------------------------------- retrained CLIMP (src/train_climp.py), results_trained/
+TRAINED = ROOT / "results_trained"
+
+
+def retrained_table(res, paper, out):
+    t = TRAINED
+    rows = []
+    def r5(d, m, r, task):
+        return pct(get(load(d, f"nocaps_{m}_{r}"), task, "5"))
+    for r in RES:
+        p = get(paper, "nocaps_table4_r5", "climp-mamba1", r)
+        for ti, task in enumerate(["image_retrieval", "text_retrieval"]):
+            rows.append([f"NoCaps {task.split('_')[0]} R@5 @{r}", pfmt(r5(t, "climp-ours", r, task)),
+                         pfmt(r5(res, "climp-mamba1", r, task)), pfmt(p and p[ti])])
+    for task in ["image_retrieval", "text_retrieval"]:
+        drops = []
+        for d, m in [(t, "climp-ours"), (res, "climp-mamba1")]:
+            a, b = r5(d, m, "224", task), r5(d, m, "896", task)
+            drops.append(None if a is None or b is None else 100 * (b / a - 1))
+        p = get(paper, "nocaps_table4_r5", "climp-mamba1")
+        pd_ = None if not p else 100 * (p["896"][0 if task == "image_retrieval" else 1] / p["224"][0 if task == "image_retrieval" else 1] - 1)
+        rows.append([f"NoCaps {task.split('_')[0]} R@5 change 224→896 (%)"] + [pfmt(v, 0) for v in drops + [pd_]])
+    zo, zr = load(t, "zeroshot_climp-ours_g1"), load(res, "zeroshot_climp-mamba1_g1")
+    for s_ in ZS_SETS:
+        p = get(paper, "zeroshot_table2", "climp-mamba1", s_)
+        rows.append([f"Zero-shot {s_} top-1", fmt(get(zo, s_, "top1")), fmt(get(zr, s_, "top1")), pfmt(p and p[0])])
+    do, dr = load(t, "docci_climp-ours"), load(res, "docci_climp-mamba1")
+    for task in ["image_retrieval", "text_retrieval"]:
+        rows.append([f"DOCCI full {task.split('_')[0]} R@1 @896", fmt(get(do, "full", task, "1")), fmt(get(dr, "full", task, "1")),
+                     pfmt(get(paper, "docci_table6", "climp-mamba1", task, "1"))])
+    go, gr = get(load(t, "geometry"), "climp-ours"), get(load(res, "geometry"), "climp-mamba1")
+    for k, lab in [("alignment", "Alignment ↓"), ("uniformity_image", "Uniformity image ↓"), ("uniformity_text", "Uniformity text ↓"),
+                   ("hubness_image", "Hubness image ↓"), ("hubness_text", "Hubness text ↓")]:
+        rows.append([lab, fmt(get(go, k), 1, 3), fmt(get(gr, k), 1, 3), pfmt(get(paper, "geometry_table8", "climp-mamba1", k), 3)])
+    write_table(out, "e9_retrained", "Retrained CLIMP (ours, COCO 118k, frozen text tower) vs released CLIMP vs paper",
+                ["Metric", "Ours retrained", "Released (our eval)", "Paper"], rows,
+                "Ours retrained: VMamba-B from ImageNet-1K + frozen Mamba-1.4B, COCO train2017, 4 epochs, global batch 96 "
+                "(paper: CC12M, 10 epochs, batch 2048, text tower trained).")
+
+
+def fig_training(res, paper):
+    log = TRAINED / "train" / "train_log.json"
+    if not log.exists():
+        return None
+    log = json.loads(log.read_text())
+    tr = [e for e in log if e["kind"] == "train"]
+    mon = [e for e in log if e["kind"] != "train"]
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(8.2, 3.7))
+    a1.plot([e["epoch"] for e in tr], [e["loss"] for e in tr], color=COLOR["climp-ours"], lw=1.6)
+    a1.axhline(tr[0]["loss"], color=MUTED, ls=":", lw=1.2)
+    a1.annotate("chance level", (tr[-1]["epoch"], tr[0]["loss"]), xytext=(0, -14), textcoords="offset points", ha="right",
+                fontsize=10, color=INK2)
+    a1.set_xlabel("epoch"), a1.set_ylabel("contrastive loss"), a1.set_title("Training loss")
+    for task, ls, lab in [("image_retrieval", "-", "image retrieval"), ("text_retrieval", "--", "text retrieval")]:
+        xs, ys = [e["epoch"] for e in mon], [100 * e["metrics"][task]["1"] for e in mon]
+        a2.plot(xs, ys, ls, color=COLOR["climp-ours"], marker="o", mfc="white" if ls == "--" else COLOR["climp-ours"])
+        end_label(a2, xs[-1], ys[-1], f"{lab.split()[0]} {ys[-1]:.1f}", COLOR["climp-ours"])
+    a2.set_xlim(-0.1, 5.6), a2.set_ylim(0, 50), a2.set_xlabel("epoch"), a2.set_ylabel("R@1 (%)")
+    a2.set_title("Held-out COCO-val R@1")
+    fig.tight_layout()
+    return fig
+
+
+def spread_labels(ax, x, items, gap):
+    """Direct labels at the line ends, nudged apart vertically so they never overlap. items: [(y, text)]."""
+    items = sorted(items)
+    ys = [y for y, _ in items]
+    for i in range(1, len(ys)):
+        ys[i] = max(ys[i], ys[i - 1] + gap)
+    for (y, text), ly in zip(items, ys):
+        ax.annotate(text, (x, y), xytext=(x + 30, ly), textcoords="data", va="center", fontsize=11, color=INK2,
+                    arrowprops=dict(arrowstyle="-", color=GRID, lw=1) if abs(ly - y) > 1 else None)
+
+
+def fig_retrained_resolution(res, paper):
+    if load(TRAINED, "nocaps_climp-ours_224") is None:
+        return None
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.3), sharey=True)
+    xs = [int(r) for r in RES]
+    for ax, (task, title, pi) in zip(axes, [("image_retrieval", "Image retrieval R@5", 0), ("text_retrieval", "Text retrieval R@5", 1)]):
+        labels = []
+        rope = get(paper, "nocaps_table4_r5", "rope-vit (reference)")
+        if rope:
+            ys = [100 * rope[r][pi] / rope["224"][pi] for r in RES]
+            ax.plot(xs, ys, "--", color=PAPER, marker="o", mfc="white")
+            labels.append((ys[-1], "RoPE-ViT (paper)"))
+        for d, m, lab in [(res, "openclip-vitb16", "OpenCLIP"), (res, "climp-mamba1", "CLIMP released"),
+                          (TRAINED, "climp-ours", "CLIMP retrained (ours)")]:
+            vals = [get(load(d, f"nocaps_{m}_{r}"), task, "5") for r in RES]
+            if None in vals:
+                continue
+            ys = [100 * v / vals[0] for v in vals]
+            ax.plot(xs, ys, color=COLOR[m], marker="o")
+            labels.append((ys[-1], f"{lab} ({100 * vals[0]:.0f}→{100 * vals[-1]:.0f})"))
+        spread_labels(ax, xs[-1], labels, gap=6.5)
+        ax.set_xticks(xs, [f"{x}×{x}" for x in xs]), ax.set_xlim(180, 1400), ax.set_ylim(0, 105), ax.set_title(title)
+        ax.set_xlabel("input resolution (all trained at 224)")
+    axes[0].set_ylabel("% of the model's own 224-px R@5")
+    fig.tight_layout()
+    return fig
+
+
+FIGURES.update({"fig10_training_curve": fig_training, "fig11_retrained_resolution": fig_retrained_resolution})
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--smoke", action="store_true")
@@ -481,6 +589,7 @@ if __name__ == "__main__":
     efficiency(res, paper, tables)
     sugarcrepe(res, paper, tables)
     cifar(res, paper, tables)
+    retrained_table(res, paper, tables)
     figs = {}
     for name, make in FIGURES.items():
         fig = make(res, paper)

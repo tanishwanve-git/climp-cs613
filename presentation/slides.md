@@ -326,7 +326,7 @@ Everything ran on two free Kaggle T4 GPUs. A correctness gate checks my pipeline
 
 ![w:1060](../results/figures/fig4_reproduction.png)
 
-<div class="take"><b>32 of 34</b> recomputable numbers match within ±0.5 pp (median gap <b>0.02 pp</b>). Outliers: ImageNet-O top-1 (+1.7) and Mamba-2 text R@10 (−0.6). <span class="small">Because these are the authors' trained weights, a match validates my <i>evaluation</i>, not their training.</span></div>
+<div class="take"><b>32 of 34</b> recomputable numbers match within ±0.5 pp (median gap <b>0.02 pp</b>). Outliers: ImageNet-O top-1 (+1.7) and Mamba-2 text R@10 (−0.6). <span class="small">These are the authors' trained weights, so a match validates my <i>evaluation</i>; I retrain CLIMP myself later (slides 19–20).</span></div>
 
 <!--
 (~45 s) Before interpreting anything, is my evaluation correct? Left: each dot is one number from the paper's tables or README, plotted against my measurement — all on the diagonal. Right: the differences. 32 of 34 are inside half a point; the median difference is two hundredths of a point.
@@ -483,6 +483,73 @@ But the contrastive loss on web captions rarely needs word order to find the rig
 
 ---
 
+## Retraining CLIMP ourselves, without the released weights <span class="new">NEW</span>
+
+<div class="cols-narrow">
+<div class="compact">
+
+**Why:** matching the released checkpoints validates the *evaluation*. Does the *recipe* work when we train it?
+
+| | Paper | Ours |
+|---|---|---|
+| Vision init | VMamba-B ImageNet-1K | **same** (official ckpt) |
+| Text tower | Mamba-1.4B, **trained** | Mamba-1.4B, **frozen** |
+| Loss / optimiser | InfoNCE, AdamW 5e-5 cosine | **same** |
+| Data | CC12M (12M) | **COCO (118k)**, 4 epochs |
+| Batch | 2048 | 96 (2× T4, 4.7 h) |
+
+<span class="small">The frozen text tower is a forced deviation: 1.4B parameters don't fit on a T4 for training. I verified that the authors **did** train theirs (all 482 tensors differ from pretrained Mamba).</span>
+
+</div>
+<div>
+
+![w:640](../results/figures/fig10_training_curve.png)
+
+<div class="take">Training works: from chance to <b>36 / 42</b> R@1 on held-out COCO. Gains flatten after ~2.5 epochs.</div>
+
+</div>
+</div>
+
+<!--
+(~50 s) The reproduction so far used the authors' trained weights — so it checks evaluation, not training. So I retrained CLIMP myself from the same starting points: ImageNet VMamba-B and pretrained Mamba-1.4B, with the paper's loss and optimiser.
+Two big compromises: data — COCO, 118 thousand images instead of 12 million — and the text tower is frozen, because a 1.4B model can't be trained on a 16 GB T4. I checked the released weights: the authors did train their text tower, so this is a real deviation.
+Right: 4 epochs, 4.7 hours on two T4s. Loss falls from chance, and held-out COCO retrieval climbs to 36 and 42 percent R@1, then flattens.
+-->
+
+---
+
+## Retrained CLIMP: what survives at small scale <span class="new">NEW</span>
+
+![w:800](../results/figures/fig11_retrained_resolution.png)
+
+<div class="cols">
+<div class="compact">
+
+| (top-1 / R@1) | Ours retrained | Released |
+|---|---|---|
+| ImageNet-V2 / **ImageNet-O** | 13.9 / **22.5** | 37.6 / **49.8** |
+| DOCCI full captions @896 (img / txt) | **2.8 / 2.5** | 37.3 / 23.8 |
+| Hubness image (↓) | **19.7** | 1.55 |
+
+</div>
+<div>
+
+- **No graceful high-res behaviour:** −34% / −52%, like the paper's RoPE-ViT. It comes from scale, not the architecture alone
+- **ImageNet-O is still the best variant** (as released)
+- **Long text needs a trained text tower**
+
+</div>
+</div>
+
+<!--
+(~60 s) The figure shows each model's NoCaps R@5 relative to its own 224-pixel score. The released CLIMP keeps 81 and 65 percent at 896; our retrained one keeps only 66 and 48 — about as steep as the paper's RoPE-ViT baseline. Same code, same no-position-embedding design, so the graceful degradation must come from large-scale training rather than from the architecture by itself.
+ImageNet-O remains our model's best ImageNet variant, the same ordering as the released model.
+DOCCI collapses to about 3 percent: the frozen Mamba can read 578 tokens, but our projection only ever saw 11-token COCO captions. So "any caption length" is an architectural ability; retrieving well with long text has to be learned — consistent with the authors fine-tuning their text tower.
+Huge image hubness shows an under-trained embedding space. All absolute numbers are low because of 100x less data — read this as trends.
+-->
+
+---
+
 <!-- header: E · Critical analysis -->
 
 ## Strengths and limitations
@@ -579,6 +646,7 @@ What I'd change: release baselines and define memory; use hubness correction at 
 - <span class="ok">✓</span> Released CLIMP reproduces: NoCaps at all resolutions, ImageNet variants, DOCCI, geometry, FLOPs, CIFAR bias
 - <span class="no">✗</span> Not robust to a broader test: the memory saving, hubness values, and advantages over a strong ViT (ImageNet-O excepted)
 - <span class="new">NEW</span> Long text helps (+9.2 pp) · CSLS +9.3 pp · pretrained layout sensitivity = ViT's · weak at word order
+- <span class="new">NEW</span> Retrained on COCO: it learns, but resolution robustness and long-text retrieval do **not** appear at small scale
 
 <div class="take"><b>Mamba is a viable CLIP backbone, but not yet a better one.</b></div>
 
@@ -615,6 +683,7 @@ Conclusion: the released model is exactly as reported; three broader claims don'
 - evaluation code with unit tests, verified against upstream
 - correctness gate
 - two-GPU Kaggle pipeline
+- CLIMP retraining pipeline (distributed loss tested to equal the full batch)
 - fixes for out-of-memory and dataset-loader failures
 - every table and figure generated from result files
 
