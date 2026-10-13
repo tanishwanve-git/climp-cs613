@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 430" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#52514e"/></marker>
+  </defs>
+  <rect width="1100" height="430" fill="#ffffff"/>
+  <!-- vision path -->
+  <text x="20" y="34" font-size="17" font-weight="bold" fill="#2a78d6">Vision tower</text>
+  <rect x="20" y="50" width="150" height="90" rx="10" fill="#eaf2fc" stroke="#2a78d6" stroke-width="2"/>
+  <text x="95" y="88" font-size="16" text-anchor="middle" fill="#0b0b0b">Image</text>
+  <text x="95" y="112" font-size="14" text-anchor="middle" fill="#52514e">any H × W</text>
+  <line x1="170" y1="95" x2="205" y2="95" stroke="#52514e" stroke-width="2" marker-end="url(#a)"/>
+  <rect x="210" y="50" width="330" height="90" rx="10" fill="#eaf2fc" stroke="#2a78d6" stroke-width="2"/>
+  <text x="375" y="80" font-size="16" text-anchor="middle" font-weight="bold" fill="#0b0b0b">VMamba-B (88M)</text>
+  <text x="375" y="103" font-size="14" text-anchor="middle" fill="#52514e">4×4 patches → 4 stages of VSS blocks</text>
+  <text x="375" y="124" font-size="14" text-anchor="middle" fill="#52514e">SS2D 4-way scan · no positional embedding</text>
+  <line x1="540" y1="95" x2="575" y2="95" stroke="#52514e" stroke-width="2" marker-end="url(#a)"/>
+  <rect x="580" y="62" width="150" height="66" rx="10" fill="#ffffff" stroke="#2a78d6" stroke-width="2"/>
+  <text x="655" y="91" font-size="15" text-anchor="middle" fill="#0b0b0b">avg-pool → W_v</text>
+  <text x="655" y="113" font-size="14" text-anchor="middle" fill="#52514e">1024 → 768, ‖·‖=1</text>
+  <line x1="730" y1="95" x2="790" y2="95" stroke="#52514e" stroke-width="2" marker-end="url(#a)"/>
+  <text x="760" y="85" font-size="18" text-anchor="middle" font-style="italic" fill="#2a78d6">v</text>
+  <!-- text path -->
+  <text x="20" y="224" font-size="17" font-weight="bold" fill="#13875e">Text tower</text>
+  <rect x="20" y="240" width="150" height="90" rx="10" fill="#e8f7f1" stroke="#1baf7a" stroke-width="2"/>
+  <text x="95" y="278" font-size="16" text-anchor="middle" fill="#0b0b0b">Caption</text>
+  <text x="95" y="302" font-size="14" text-anchor="middle" fill="#52514e">any length</text>
+  <line x1="170" y1="285" x2="205" y2="285" stroke="#52514e" stroke-width="2" marker-end="url(#a)"/>
+  <rect x="210" y="240" width="330" height="90" rx="10" fill="#e8f7f1" stroke="#1baf7a" stroke-width="2"/>
+  <text x="375" y="270" font-size="16" text-anchor="middle" font-weight="bold" fill="#0b0b0b">Mamba-1.4B language model</text>
+  <text x="375" y="293" font-size="14" text-anchor="middle" fill="#52514e">48 causal selective-SSM layers</text>
+  <text x="375" y="314" font-size="14" text-anchor="middle" fill="#52514e">no position table · O(L) in caption length</text>
+  <line x1="540" y1="285" x2="575" y2="285" stroke="#52514e" stroke-width="2" marker-end="url(#a)"/>
+  <rect x="580" y="252" width="150" height="66" rx="10" fill="#ffffff" stroke="#1baf7a" stroke-width="2"/>
+  <text x="655" y="281" font-size="14" text-anchor="middle" fill="#0b0b0b">last token → W_t</text>
+  <text x="655" y="303" font-size="14" text-anchor="middle" fill="#52514e">2048 → 768, ‖·‖=1</text>
+  <line x1="730" y1="285" x2="790" y2="285" stroke="#52514e" stroke-width="2" marker-end="url(#a)"/>
+  <text x="760" y="275" font-size="18" text-anchor="middle" font-style="italic" fill="#13875e">t</text>
+  <!-- similarity matrix -->
+  <text x="935" y="34" font-size="17" font-weight="bold" text-anchor="middle" fill="#0b0b0b">Contrastive loss</text>
+  <g transform="translate(800,60)">
+    <rect width="250" height="250" fill="#f7f7f5" stroke="#8a8984"/>
+    <g fill="#2a78d6" opacity="0.85">
+      <rect x="0" y="0" width="50" height="50"/><rect x="50" y="50" width="50" height="50"/><rect x="100" y="100" width="50" height="50"/>
+      <rect x="150" y="150" width="50" height="50"/><rect x="200" y="200" width="50" height="50"/>
+    </g>
+    <g stroke="#ffffff" stroke-width="2">
+      <line x1="50" y1="0" x2="50" y2="250"/><line x1="100" y1="0" x2="100" y2="250"/><line x1="150" y1="0" x2="150" y2="250"/><line x1="200" y1="0" x2="200" y2="250"/>
+      <line x1="0" y1="50" x2="250" y2="50"/><line x1="0" y1="100" x2="250" y2="100"/><line x1="0" y1="150" x2="250" y2="150"/><line x1="0" y1="200" x2="250" y2="200"/>
+    </g>
+  </g>
+  <text x="925" y="335" font-size="14" text-anchor="middle" fill="#52514e">N×N scores τ⁻¹·v_i·t_j — true pairs on the diagonal</text>
+  <text x="925" y="356" font-size="14" text-anchor="middle" fill="#52514e">row softmax + column softmax (symmetric InfoNCE)</text>
+  <!-- bottom note -->
+  <line x1="20" y1="388" x2="1080" y2="388" stroke="#e6e5e1" stroke-width="2"/>
+  <text x="20" y="416" font-size="15" fill="#52514e"><tspan font-weight="bold" fill="#0b0b0b">CLIP:</tspan> ViT (O(L²) attention, fixed patch grid) + Transformer text (77 tokens).
+    <tspan font-weight="bold" fill="#0b0b0b" dx="12">CLIMP:</tspan> both towers are SSMs, linear in L, no fixed size or length.</text>
+</svg>

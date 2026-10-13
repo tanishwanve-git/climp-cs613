@@ -35,7 +35,7 @@ We re-evaluated the two released checkpoints on eight experiments on 2× Tesla T
 
 **New findings:**
 
-- CSLS re-scoring improves CLIMP's text R@1 by +9.4 pp.
+- CSLS re-scoring improves CLIMP's text R@1 by +9.3 pp.
 - Long captions really help CLIMP (+9.2 pp image R@1 from 77 tokens to full captions).
 - The pretrained CLIMP is **not** more sensitive to patch shuffling than a ViT.
 - CLIMP is near chance on SugarCrepe's word-order (swap) tests.
@@ -287,6 +287,10 @@ Peak CPU RAM was 10 GB out of 34 GB.
 
 ## 5. Reproduction results (ours vs. paper)
 
+![Reproduction overview](../results/figures/fig4_reproduction.png)
+
+*Figure 1 (ours). Every number from the paper's Tables 2, 4 and 6 and the README that can be recomputed from the released weights. Left: ours vs. the paper's value; right: the difference. 32 of 34 values are within ±0.5 pp (median absolute gap 0.02 pp). The two outliers are ImageNet-O top-1 (+1.7) and Mamba-2 text R@10 (−0.6).*
+
 ### 5.1 E1 — NoCaps retrieval and resolution scaling (Table 4)
 
 | Model | Res | Image R@1 / R@5 / R@10 | Text R@1 / R@5 / R@10 |
@@ -314,7 +318,7 @@ R@5 against paper Table 4:
 
 ![NoCaps R@5 vs resolution](../results/figures/fig1_nocaps_resolution.png)
 
-*Figure 1 (ours). NoCaps R@5 vs. input resolution. Solid lines are image retrieval, dashed lines are text retrieval.*
+*Figure 2 (ours). NoCaps R@5 vs. input resolution (all models trained at 224 px). Grey dashed line: the paper's RoPE-ViT + LLaMA baseline (paper Table 4).*
 
 **Agreement.**
 
@@ -356,6 +360,10 @@ R@5 against paper Table 4:
 | OpenCLIP ViT-B/16 (ours) | 62.3 / 87.0 | 80.6 / 94.0 | 38.2 / 70.6 | 46.4 / 77.3 |
 | OpenCLIP ViT-B/16 (paper, quoted) | – | – | – | 42.3 / – |
 
+![Zero-shot](../results/figures/fig9_zeroshot.png)
+
+*Figure 3 (ours). Zero-shot top-1. Diamonds: the paper's CLIMP-Mamba1 values; grey: the paper's best CC12M Transformer baseline.*
+
 **Agreement.**
 
 - All four top-5 values match exactly, and top-1 is within 0.4 pp on V2, R and A.
@@ -393,7 +401,7 @@ Batch 1, fp16, one forward pass. Activation memory = peak memory − (weights + 
 
 ![Efficiency](../results/figures/fig2_efficiency.png)
 
-*Figure 2 (ours). Left: activation memory. Right: GFLOPs (the two ViT curves coincide).*
+*Figure 4 (ours). Left: activation memory per image. Right: GFLOPs (fused and eager attention have identical FLOPs). Grey diamonds: the paper's values at 896 px.*
 
 **FLOPs reproduce.**
 
@@ -421,6 +429,10 @@ Tiny 3-layer models: VMamba (330,382 parameters) and ViT (347,722 parameters), e
 | VMamba | shuffled | 1.149 ± 0.012 | 1.612 | 56.96 ± 0.43 | 46.44 |
 | ViT | shuffled | **0.903 ± 0.017** | 1.328 | **65.10 ± 0.49** | 59.72 |
 
+![CIFAR inductive bias](../results/figures/fig5_cifar_bias.png)
+
+*Figure 5 (ours). CIFAR-10 test accuracy, mean ± std over 3 seeds; diamonds: paper Table 7.*
+
 **The pattern reproduces in every cell.**
 
 - On regular images VMamba beats ViT: lower loss, and +8.9 pp test accuracy.
@@ -443,7 +455,7 @@ Our absolute accuracies are higher than the paper's. The paper does not state it
 
 | Experiment | CLIMP-Mamba1 | OpenCLIP | Difference |
 |---|---|---|---|
-| NoCaps text R@1 @224 | 51.8 | 80.0 | +28.2 |
+| NoCaps text R@1 @224 | 51.8 | 80.0 | +28.1 |
 | NoCaps text R@1 @896 | 25.3 | 51.7 | +26.4 |
 | Zero-shot, 4-set average | 37.4 | 56.9 | +19.5 |
 | DOCCI image R@1, full vs. 77 tokens | 37.3 | 44.1 | +6.8 |
@@ -460,13 +472,17 @@ ImageNet-O is the one exception: CLIMP wins there by 3.4 pp.
 | Model | Task | R@1 | R@5 | R@10 |
 |---|---|---|---|---|
 | CLIMP-Mamba1 | image retrieval | 38.2 → **42.7** (+4.5) | 70.5 → 74.5 | 81.8 → 84.7 |
-| CLIMP-Mamba1 | text retrieval | 51.8 → **61.2** (+9.4) | 81.9 → 86.9 | 90.9 → 93.3 |
-| OpenCLIP ViT-B/16 | image retrieval | 58.0 → 62.1 (+4.1) | 84.6 → 87.3 | 91.2 → 92.9 |
+| CLIMP-Mamba1 | text retrieval | 51.8 → **61.2** (+9.3) | 81.9 → 86.9 | 90.9 → 93.3 |
+| OpenCLIP ViT-B/16 | image retrieval | 58.0 → 62.1 (+4.2) | 84.6 → 87.3 | 91.2 → 92.9 |
 | OpenCLIP ViT-B/16 | text retrieval | 80.0 → 84.5 (+4.5) | 95.7 → 97.0 | 98.2 → 99.0 |
 
-**Finding.** CSLS needs no training and lifts CLIMP's text R@1 by **+9.4 pp**, twice the gain it gives OpenCLIP.
+![CSLS](../results/figures/fig8_csls.png)
 
-The paper presents CLIMP's hubness as already low. Our result shows that the remaining hubness still costs CLIMP substantial retrieval accuracy, especially when images are the queries. A post-hoc correction recovers part of the gap to OpenCLIP: text R@1 goes from −28.2 pp to −23.3 pp.
+*Figure 6 (ours). NoCaps R@1 with cosine similarity (open circle) and after CSLS re-scoring (filled).*
+
+**Finding.** CSLS needs no training and lifts CLIMP's text R@1 by **+9.3 pp**, twice the gain it gives OpenCLIP.
+
+The paper presents CLIMP's hubness as already low. Our result shows that the remaining hubness still costs CLIMP substantial retrieval accuracy, especially when images are the queries. A post-hoc correction recovers part of the gap to OpenCLIP: text R@1 goes from −28.1 pp to −23.3 pp.
 
 Caveat: CSLS is transductive, because it uses the test set's own neighbourhoods. It is fair to use only when a batch of queries and the gallery are available together.
 
@@ -480,6 +496,10 @@ Caveat: CSLS is transductive, because it uses the test set's own neighbourhoods.
 | CLIMP-Mamba1 | 154 | 35.0 / 65.1 / 75.8 | 22.2 / 48.0 / 60.5 |
 | CLIMP-Mamba1 | full | 37.3 / 67.0 / 77.8 | 23.8 / 50.4 / 62.7 |
 | OpenCLIP ViT-B/16 | 77 (max) | **44.1 / 69.8 / 78.5** | **41.0 / 66.0 / 75.0** |
+
+![DOCCI truncation](../results/figures/fig6_docci_tokens.png)
+
+*Figure 7 (ours). DOCCI R@1 at 896 px vs. the number of caption tokens given to CLIMP's text tower. Dotted line: OpenCLIP, which always truncates at 77 tokens. Diamond: the paper's full-caption value.*
 
 **Findings.**
 
@@ -498,7 +518,7 @@ Caveat: CSLS is transductive, because it uses the test set's own neighbourhoods.
 
 ![Patch shuffle](../results/figures/fig3_patch_shuffle.png)
 
-*Figure 3 (ours). Zero-shot ImageNet-V2 top-1 vs. shuffle grid size.*
+*Figure 8 (ours). Zero-shot ImageNet-V2 top-1 under G×G block shuffling, relative to unshuffled accuracy (absolute values in brackets).*
 
 **Finding.** The *relative* drops are almost identical at every grid size, within 3 pp of each other. At pretraining scale, CLIMP is neither more nor less sensitive to layout than a ViT.
 
@@ -516,6 +536,10 @@ See §5.5. Adding the fused-attention ViT shows that the memory comparison depen
 |---|---|---|---|---|---|---|---|---|
 | CLIMP-Mamba1 | 75.4 | 83.2 | 75.6 | 89.4 | 67.2 | **55.3** | **55.5** | 71.7 |
 | OpenCLIP ViT-B/16 | 81.8 | 89.2 | 85.0 | 96.1 | 71.1 | 67.7 | 64.9 | 79.4 |
+
+![SugarCrepe](../results/figures/fig7_sugarcrepe.png)
+
+*Figure 9 (ours). SugarCrepe accuracy per subset; dashed line: chance (50%).*
 
 **Finding.** CLIMP trails on every subset (macro −7.7 pp). It is close to chance (50%) on the *swap* subsets, such as "a white dog and a black cat" vs. "a black dog and a white cat". Those test word order and binding.
 
@@ -575,7 +599,7 @@ For the claim "SSMs are a viable CLIP backbone at equal data": **mostly yes**. F
 ### 7.5 What we would improve
 
 - **Release the baseline checkpoints** and report the memory metric precisely: peak allocated memory, batch size, attention kernel.
-- **Add a hubness-aware inference step** (CSLS or inverted softmax). It is free and gave +4.5 to +9.4 pp R@1 in our tests.
+- **Add a hubness-aware inference step** (CSLS or inverted softmax). It is free and gave +4.5 to +9.3 pp R@1 in our tests.
 - **Fine-tune briefly at higher resolution.** The text-retrieval drop at 896 px suggests that the projection was tuned to 224-px feature statistics.
 - **Add compositional training signals** (hard negatives, as in NegCLIP) to exploit the LM text tower's sensitivity to word order.
 - **Run the patch-shuffle test on pretrained models (our E4)** before claiming that a spatial bias explains robustness.
@@ -611,7 +635,7 @@ These parts of the paper are trustworthy. Three claims did not hold under a broa
 Our additions show three further things:
 
 - CLIMP's long-text ability is real and worth +9 pp.
-- A training-free hubness correction adds up to +9.4 pp R@1.
+- A training-free hubness correction adds up to +9.3 pp R@1.
 - The pretrained model's spatial sensitivity matches a ViT's, and CLIMP shares CLIP's weakness on word order.
 
 Overall: **Mamba is a viable CLIP backbone, but not yet a better one.**

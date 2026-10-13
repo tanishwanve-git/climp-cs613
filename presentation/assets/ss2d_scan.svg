@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 330" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="h" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2a78d6"/></marker>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#52514e"/></marker>
+    <g id="grid">
+      <rect width="160" height="160" fill="#f7f7f5" stroke="#8a8984"/>
+      <g stroke="#d9d8d3"><line x1="40" y1="0" x2="40" y2="160"/><line x1="80" y1="0" x2="80" y2="160"/><line x1="120" y1="0" x2="120" y2="160"/>
+      <line x1="0" y1="40" x2="160" y2="40"/><line x1="0" y1="80" x2="160" y2="80"/><line x1="0" y1="120" x2="160" y2="120"/></g>
+    </g>
+  </defs>
+  <rect width="1000" height="330" fill="#ffffff"/>
+  <!-- 1 row-major -->
+  <g transform="translate(20,40)"><use href="#grid"/>
+    <line x1="14" y1="20" x2="146" y2="20" stroke="#2a78d6" stroke-width="3" marker-end="url(#h)"/><line x1="14" y1="60" x2="146" y2="60" stroke="#2a78d6" stroke-width="3" marker-end="url(#h)"/><line x1="14" y1="100" x2="146" y2="100" stroke="#2a78d6" stroke-width="3" marker-end="url(#h)"/><line x1="14" y1="140" x2="146" y2="140" stroke="#2a78d6" stroke-width="3" marker-end="url(#h)"/>
+    <text x="80" y="190" font-size="15" text-anchor="middle" fill="#0b0b0b">rows, left → right</text></g>
+  <!-- 2 column-major -->
+  <g transform="translate(220,40)"><use href="#grid"/>
+    <line x1="20" y1="14" x2="20" y2="146" stroke="#2a78d6" stroke-width="3" marker-end="url(#h)"/><line x1="60" y1="14" x2="60" y2="146" stroke="#2a78d6" stroke-width="3" marker-end="url(#h)"/><line x1="100" y1="14" x2="100" y2="146" stroke="#2a78d6" stroke-width="3" marker-end="url(#h)"/><line x1="140" y1="14" x2="140" y2="146" stroke="#2a78d6" stroke-width="3" marker-end="url(#h)"/>
+    <text x="80" y="190" font-size="15" text-anchor="middle" fill="#0b0b0b">columns, top → bottom</text></g>
+  <!-- 3 reversed rows -->
+  <g transform="translate(420,40)"><use href="#grid"/>
+    <line x1="146" y1="20" x2="14" y2="20" stroke="#2a78d6" stroke-width="3" marker-end="url(#h)"/><line x1="146" y1="60" x2="14" y2="60" stroke="#2a78d6" stroke-width="3" marker-end="url(#h)"/><line x1="146" y1="100" x2="14" y2="100" stroke="#2a78d6" stroke-width="3" marker-end="url(#h)"/><line x1="146" y1="140" x2="14" y2="140" stroke="#2a78d6" stroke-width="3" marker-end="url(#h)"/>
+    <text x="80" y="190" font-size="15" text-anchor="middle" fill="#0b0b0b">rows, reversed</text></g>
+  <!-- 4 reversed columns -->
+  <g transform="translate(620,40)"><use href="#grid"/>
+    <line x1="20" y1="146" x2="20" y2="14" stroke="#2a78d6" stroke-width="3" marker-end="url(#h)"/><line x1="60" y1="146" x2="60" y2="14" stroke="#2a78d6" stroke-width="3" marker-end="url(#h)"/><line x1="100" y1="146" x2="100" y2="14" stroke="#2a78d6" stroke-width="3" marker-end="url(#h)"/><line x1="140" y1="146" x2="140" y2="14" stroke="#2a78d6" stroke-width="3" marker-end="url(#h)"/>
+    <text x="80" y="190" font-size="15" text-anchor="middle" fill="#0b0b0b">columns, reversed</text></g>
+  <text x="20" y="26" font-size="16" font-weight="bold" fill="#0b0b0b">One patch grid, unfolded into four 1-D sequences</text>
+  <line x1="800" y1="120" x2="840" y2="120" stroke="#52514e" stroke-width="2" marker-end="url(#g)"/>
+  <rect x="845" y="60" width="140" height="120" rx="10" fill="#eaf2fc" stroke="#2a78d6" stroke-width="2"/>
+  <text x="915" y="96" font-size="15" text-anchor="middle" fill="#0b0b0b">selective scan</text>
+  <text x="915" y="118" font-size="15" text-anchor="middle" fill="#0b0b0b">on each</text>
+  <text x="915" y="148" font-size="15" text-anchor="middle" fill="#0b0b0b">→ sum per patch</text>
+  <text x="20" y="282" font-size="15" fill="#52514e">After 4 scans every patch has received context from all directions (global receptive field), still O(L) in the number of patches.</text>
+  <text x="20" y="306" font-size="15" fill="#52514e">Position is encoded only by the scan order, so the same weights run on a 14×14 grid (224 px) or a 56×56 grid (896 px).</text>
+</svg>

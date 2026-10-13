@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 260" font-family="Helvetica, Arial, sans-serif">
+  <defs><marker id="k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#52514e"/></marker></defs>
+  <rect width="900" height="260" fill="#ffffff"/>
+  <g font-size="18">
+    <circle cx="150" cy="110" r="36" fill="#eaf2fc" stroke="#2a78d6" stroke-width="2"/><text x="150" y="117" text-anchor="middle">h<tspan font-size="13" dy="5">t−1</tspan></text>
+    <circle cx="450" cy="110" r="36" fill="#eaf2fc" stroke="#2a78d6" stroke-width="2"/><text x="450" y="117" text-anchor="middle">h<tspan font-size="13" dy="5">t</tspan></text>
+    <circle cx="750" cy="110" r="36" fill="#eaf2fc" stroke="#2a78d6" stroke-width="2"/><text x="750" y="117" text-anchor="middle">h<tspan font-size="13" dy="5">t+1</tspan></text>
+    <line x1="186" y1="110" x2="410" y2="110" stroke="#52514e" stroke-width="2" marker-end="url(#k)"/>
+    <line x1="486" y1="110" x2="710" y2="110" stroke="#52514e" stroke-width="2" marker-end="url(#k)"/>
+    <text x="298" y="98" text-anchor="middle" fill="#0b0b0b">× Ā  (forget)</text>
+    <text x="598" y="98" text-anchor="middle" fill="#0b0b0b">× Ā</text>
+    <text x="450" y="232" text-anchor="middle" fill="#0b0b0b">x<tspan font-size="13" dy="5">t</tspan></text>
+    <line x1="450" y1="212" x2="450" y2="150" stroke="#52514e" stroke-width="2" marker-end="url(#k)"/>
+    <text x="462" y="190" fill="#0b0b0b">B̄ (write)</text>
+    <line x1="450" y1="74" x2="450" y2="30" stroke="#52514e" stroke-width="2" marker-end="url(#k)"/>
+    <text x="462" y="52" fill="#0b0b0b">C (read) → y<tspan font-size="13" dy="5">t</tspan></text>
+  </g>
+  <rect x="560" y="160" width="320" height="76" rx="8" fill="#fff4ec" stroke="#eb6834"/>
+  <text x="575" y="188" font-size="15" fill="#0b0b0b">Mamba: Δ, B, C are computed from x<tspan font-size="11" dy="4">t</tspan></text>
+  <text x="575" y="212" font-size="15" fill="#52514e" dy="0">→ the model chooses, per token, what to</text>
+  <text x="575" y="230" font-size="15" fill="#52514e">store and what to forget ("selection")</text>
+  <text x="20" y="240" font-size="15" fill="#52514e">cost per token: constant · total: O(L)</text>
+</svg>

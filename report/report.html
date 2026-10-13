@@ -1,0 +1,1103 @@
+<!doctype html><html><head><meta charset="utf-8"><title>CLIMP reproduction report</title><style>
+@page { size: A4; margin: 18mm 17mm; }
+body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; color: #1f1f1e; max-width: 900px; margin: 0 auto; }
+h1 { font-size: 20pt; margin: 0 0 6pt; } h2 { font-size: 14.5pt; border-bottom: 1.5px solid #e6e5e1; padding-bottom: 3pt; margin-top: 18pt; }
+h3 { font-size: 12pt; margin-top: 12pt; } table { border-collapse: collapse; font-size: 9pt; margin: 6pt 0; page-break-inside: avoid; }
+th { background: #f1f0ec; } th, td { border: 1px solid #e6e5e1; padding: 3pt 6pt; vertical-align: top; }
+img { max-width: 100%; display: block; margin: 8pt auto 2pt; page-break-inside: avoid; } em { color: #52514e; }
+code, pre { font-size: 8.5pt; background: #f7f7f5; } pre { padding: 6pt 8pt; overflow-x: auto; }
+hr { border: none; border-top: 1px solid #e6e5e1; margin: 14pt 0; } li { margin: 2pt 0; }
+</style></head><body><h1>CLIMP: Contrastive Language-Image Mamba Pretraining — A Reproduction and Critical Study</h1>
+<p><strong>CS613 paper presentation report</strong> · Tanish Wanve
+Paper: N. Shabtay, I. Zimerman, E. Schwartz, R. Giryes, <em>CLIMP: Contrastive Language-Image Mamba Pretraining</em>, arXiv 2601.06891 (v2).
+Code: <a href="https://github.com/tanishwanve-git/climp-cs613">https://github.com/tanishwanve-git/climp-cs613</a> (upstream: <a href="https://github.com/NimrodShabtay/CLIMP">https://github.com/NimrodShabtay/CLIMP</a>, commit <code>3ff1279</code>).</p>
+<hr />
+<h2>Abstract</h2>
+<p>CLIP-style models pair a Vision Transformer (ViT) with a Transformer text encoder. This design has three known weaknesses:</p>
+<ul>
+<li>Attention cost grows quadratically with the number of image patches.</li>
+<li>The text encoder reads at most 77 tokens.</li>
+<li>Attention can latch onto spurious correlations.</li>
+</ul>
+<p>CLIMP replaces <strong>both</strong> towers with state-space models (SSMs): VMamba for images and a pretrained Mamba language model for text. The paper claims that this gives better retrieval, better out-of-distribution (OOD) robustness, native any-resolution inference with lower memory and FLOPs, long-caption retrieval, and a measurable spatial inductive bias.</p>
+<p>We re-evaluated the two released checkpoints on eight experiments on 2× Tesla T4. We added a strong, publicly available ViT-B/16 CLIP baseline and four analyses that are not in the paper.</p>
+<p><strong>What reproduces.</strong> We did not retrain CLIMP. We ran the authors' released, already-trained weights on the same test sets. Close agreement is therefore expected if the evaluation is correct, and it is our check that it is. The training claims themselves (the controlled CC12M comparison and scaling) are not re-tested; only the small CIFAR-10 experiment (E8) is retrained, and there only the pattern, not the values, matches. Every number we could recompute from the released weights matches the paper to within 0.1–0.4 pp:</p>
+<ul>
+<li>NoCaps retrieval at 224/512/896 px (all of Table 4);</li>
+<li>the four ImageNet variants of Table 2 (top-5 exact; top-1 within 0.4 pp except ImageNet-O);</li>
+<li>DOCCI long-caption retrieval (Table 6);</li>
+<li>the alignment and uniformity of Table 8;</li>
+<li>the FLOP counts of Fig. 3;</li>
+<li>the qualitative pattern of the CIFAR-10 inductive-bias experiment (Table 7).</li>
+</ul>
+<p><strong>What does not reproduce or does not generalise:</strong></p>
+<ul>
+<li><strong>Memory.</strong> The 5× memory advantage depends on how attention is implemented. Against a ViT with modern fused attention, VMamba uses <strong>7.8× more</strong> activation memory at 896 px.</li>
+<li><strong>Hubness.</strong> Our hubness values are higher than the paper's.</li>
+<li><strong>Baseline strength.</strong> Against a CLIP ViT-B/16 trained on more data, CLIMP's retrieval, zero-shot, long-caption and compositional advantages disappear. ImageNet-O is the only exception.</li>
+</ul>
+<p><strong>New findings:</strong></p>
+<ul>
+<li>CSLS re-scoring improves CLIMP's text R@1 by +9.3 pp.</li>
+<li>Long captions really help CLIMP (+9.2 pp image R@1 from 77 tokens to full captions).</li>
+<li>The pretrained CLIMP is <strong>not</strong> more sensitive to patch shuffling than a ViT.</li>
+<li>CLIMP is near chance on SugarCrepe's word-order (swap) tests.</li>
+</ul>
+<hr />
+<h2>1. Problem and motivation</h2>
+<h3>1.1 What problem does the paper solve?</h3>
+<p>CLIP [Radford et al. 2021] learns a shared image–text embedding space from image–caption pairs. It is the backbone of zero-shot classification, retrieval, and the vision side of most multimodal LLMs. Standard CLIP uses Transformers on both sides, and the paper names three limitations of that design.</p>
+<ol>
+<li><strong>Quadratic cost in image resolution.</strong>
+   - A ViT-B/16 at 224 px sees 14×14 = 196 patches. At 896 px it sees 56×56 = 3,136 patches.
+   - Self-attention compares every patch with every other patch, so its cost grows with the square of the patch count: 16× more pixels means 256× more attention entries.
+   - High-resolution inputs such as documents, satellite images and dense scenes therefore become expensive.
+   - A ViT also has learned positional embeddings for one grid size. Running it at another size needs interpolation, RoPE, or special training (FlexViT, NaFlex).</li>
+<li><strong>Fixed 77-token text context.</strong>
+   - CLIP's text Transformer has 77 learned positions, and anything longer is cut off.
+   - Dense captions are much longer: DOCCI averages ~142 tokens, and 94% of its captions exceed 77.</li>
+<li><strong>Spurious correlations and distribution shift.</strong> Pairwise attention can rely on spurious, non-robust cues [Wang et al. 2024], which hurts OOD robustness.</li>
+</ol>
+<h3>1.2 Why is it important?</h3>
+<p>Contrastive encoders are infrastructure: their weaknesses propagate into every downstream system built on them. A backbone with linear cost in sequence length, no fixed resolution and no fixed text length would directly benefit:</p>
+<ul>
+<li>high-resolution retrieval;</li>
+<li>long-description retrieval;</li>
+<li>the efficiency of the vision encoders inside vision-language LLMs.</li>
+</ul>
+<h3>1.3 Limitations of existing approaches and what motivated the authors</h3>
+<ul>
+<li><strong>Transformer workarounds.</strong> FlexViT, NaFlex and RoPE-ViT add machinery to make ViTs resolution-flexible, but the quadratic cost remains.</li>
+<li><strong>LLMs as text towers.</strong> LLM2CLIP and UniViTAR use LLMs as text towers, but they keep a Transformer on the vision side.</li>
+<li><strong>Prior Mamba-for-CLIP work.</strong> CLIP-Mamba [Huang et al. 2024] put Mamba into CLIP only partially (hybrid towers), with a narrow evaluation.</li>
+<li><strong>The opportunity.</strong> Mamba [Gu &amp; Dao 2023] and VMamba [Liu et al. 2024] had shown linear-time sequence modelling and competitive ImageNet accuracy, plus a spatial inductive bias (locality and smoothness) that ViTs lack.</li>
+</ul>
+<p>The authors' hypothesis is that a <strong>fully</strong> SSM-based CLIP inherits all of these benefits at once.</p>
+<hr />
+<h2>2. Key contribution</h2>
+<p><strong>Central idea.</strong> Build CLIP from SSMs on both sides:</p>
+<ul>
+<li><strong>vision:</strong> VMamba-B, with its 2-D selective scan (SS2D);</li>
+<li><strong>text:</strong> a pretrained Mamba-1 (1.4 B) or Mamba-2 (1.3 B) language model, using the hidden state of the last token as the sentence embedding.</li>
+</ul>
+<p>Both towers are trained with the standard CLIP contrastive loss.</p>
+<p><strong>What is new:</strong></p>
+<ol>
+<li>It is the first CLIP model in which <strong>both</strong> encoders are Mamba-based.</li>
+<li>The evaluation is controlled: every model is trained on CC12M with the same recipe, which isolates the effect of the architecture.</li>
+<li>The evaluation is broad: retrieval, OOD, resolution, dense captions, embedding geometry, efficiency, scaling, and inductive bias.</li>
+</ol>
+<p><strong>Main insight.</strong> The scan order of VMamba <em>is</em> its positional information. VMamba has no positional embedding to interpolate, so the same weights run at any resolution. The recurrence decays with distance (for Mamba-2 the transition is Ā = λI, so a state k steps back is weighted by λᵏ), which gives a locality bias.</p>
+<p>On the text side, a causal recurrent model has no position table. It reads arbitrarily long text, and its last hidden state summarises the whole input.</p>
+<p><strong>Why it should work, according to the authors:</strong></p>
+<ul>
+<li><strong>Retrieval.</strong> Better retrieval comes from tighter alignment and lower hubness in the embedding space (paper Table 8).</li>
+<li><strong>ImageNet-O.</strong> The OOD gains (notably ImageNet-O) come from the spatial bias, which reduces reliance on spurious features.</li>
+<li><strong>Efficiency.</strong> It comes from the linear-time scan.</li>
+</ul>
+<p>The paper's headline numbers (CLIP-Benchmark average of 31 datasets, all trained on CC12M) are below. These are <strong>paper</strong> numbers, given for context; we cannot recompute them because the baselines are not released.</p>
+<table>
+<thead>
+<tr>
+<th>Vision</th>
+<th>Text</th>
+<th>Acc@1</th>
+<th>Acc@5</th>
+<th>IR@5</th>
+<th>TR@5</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ViT-B/16</td>
+<td>LLaMA-3.2-1B</td>
+<td>27.3</td>
+<td>56.4</td>
+<td>62.8</td>
+<td>72.9</td>
+</tr>
+<tr>
+<td>RoPE-ViT-B/16</td>
+<td>LLaMA-3.2-1B</td>
+<td>27.3</td>
+<td>59.0</td>
+<td>63.4</td>
+<td>72.9</td>
+</tr>
+<tr>
+<td>CLIMP (VMamba-B)</td>
+<td>Mamba-2</td>
+<td>26.9</td>
+<td>59.0</td>
+<td>65.2</td>
+<td>75.3</td>
+</tr>
+<tr>
+<td>CLIMP (VMamba-B)</td>
+<td>Mamba-1</td>
+<td><strong>29.6</strong></td>
+<td>58.5</td>
+<td><strong>65.5</strong></td>
+<td><strong>77.0</strong></td>
+</tr>
+</tbody>
+</table>
+<p><em>Paper Table 1 (excerpt).</em></p>
+<hr />
+<h2>3. Method</h2>
+<h3>3.1 State-space models (SSMs)</h3>
+<p>An SSM maps an input signal x(t) to an output y(t) through a hidden state h(t) ∈ ℝᴺ:</p>
+<p>h′(t) = A h(t) + B x(t),  y(t) = C h(t) + D x(t)</p>
+<ul>
+<li><strong>A</strong> says how the memory evolves (how fast it forgets).</li>
+<li><strong>B</strong> says how much of the input is written into memory.</li>
+<li><strong>C</strong> says what is read out.</li>
+<li><strong>D</strong> is a skip connection.</li>
+</ul>
+<p>For token sequences the system is <strong>discretised</strong> with a step size Δ. Mamba uses the zero-order hold (ZOH) rule:</p>
+<p>Ā = exp(ΔA),  B̄ = (ΔA)⁻¹(exp(ΔA) − I)·ΔB,  hₜ = Ā hₜ₋₁ + B̄ xₜ,  yₜ = C hₜ + D xₜ.</p>
+<p>In words:</p>
+<ul>
+<li>hₜ is a running summary of everything seen so far.</li>
+<li>Each step decays the old summary by Ā and adds the new token through B̄.</li>
+<li>A large Δ means "reset and focus on this token"; a small Δ means "keep the past, mostly ignore this token".</li>
+</ul>
+<p>The cost is <strong>linear</strong> in sequence length L, compared with O(L²) for attention.</p>
+<h3>3.2 Selectivity: Mamba-1 vs. Mamba-2</h3>
+<p><strong>Mamba-1</strong> makes B, C and Δ functions of the current input xₜ. This <em>selection</em> lets the model decide, token by token, what to store and what to forget. That is what makes it competitive with attention on language. Because the parameters vary per token, the model can no longer be computed as a convolution; Mamba uses a hardware-aware parallel scan instead.</p>
+<p><strong>Mamba-2</strong> restricts A to a scalar times the identity (A = aI) and shares parameters across heads. This structure (state-space duality, SSD) lets the recurrence be computed as blocked matrix multiplications, which is 2–8× faster. The cost is expressivity: Mamba-2 has one decay rate per head instead of one per channel.</p>
+<p>The paper finds that Mamba-1 is slightly better for contrastive alignment (Table 1), and our NoCaps results agree (§5.1).</p>
+<h3>3.3 Vision tower: VMamba and the SS2D cross-scan</h3>
+<p>An image is not a 1-D sequence. VMamba handles this in four steps:</p>
+<ol>
+<li>Split the image into patches.</li>
+<li>Unfold the patch grid into <strong>four</strong> 1-D sequences: row-major, column-major, and both of these reversed.</li>
+<li>Run a selective scan along each sequence.</li>
+<li>Add the four outputs back at each patch position.</li>
+</ol>
+<p>After the four scans, every patch has received information from every direction, so its receptive field is global. The cost is still linear in the number of patches.</p>
+<p>VMamba-B is hierarchical (4 stages with patch merging, like a CNN), and its pooled output is projected to the 768-d joint space by W_v.</p>
+<p>CLIMP turns positional embeddings off. In the upstream code, <code>posembed=False</code>, and <code>imgsize</code> only affects the positional embedding. Position is therefore encoded only by scan order, and <strong>one set of weights serves every resolution</strong>. We verified that the parameter names and shapes are identical at 224 and 896 px (log line in <code>results/logs/E1.log</code>).</p>
+<h3>3.4 Text tower: last-token pooling</h3>
+<p>The text tower is a pretrained Mamba LM. For tokens t₁…t_L with a padding mask, the text embedding is the last layer's hidden state at the last non-padding position, projected by W_t:</p>
+<p>t_raw = H_k,  k = max{ i : token i is not padding }  (paper Eq. 1)</p>
+<p>The model is causal: each hₜ depends only on tokens ≤ t. The last real token is therefore the only position that has seen the whole caption, which makes it the natural summary. This is the same reason GPT-style embedding models use the last token.</p>
+<p>Because the model has no position table, captions of any length are accepted. A consequence we verified: padding on the right (Mamba-1 tokenizer) or the left (Mamba-2 tokenizer) never changes the embedding (cosine similarity 1.00000 in the E1 check).</p>
+<h3>3.5 Objective and training</h3>
+<p>CLIMP keeps CLIP's symmetric InfoNCE loss. For a batch of N pairs with normalised embeddings vᵢ (image) and tᵢ (text), and learned temperature τ:</p>
+<p>L = −(1/2N) Σᵢ [ log softmaxⱼ(vᵢ·tⱼ/τ)ᵢ + log softmaxⱼ(tᵢ·vⱼ/τ)ᵢ ]</p>
+<p>In words, in each row and column of the N×N similarity matrix, the true pair should score highest. The other N−1 captions in the batch act as negatives, which is why CLIP needs large batches.</p>
+<p><strong>Training setup (paper):</strong></p>
+<ul>
+<li><strong>Data:</strong> CC12M, 10 epochs, 224 px.</li>
+<li><strong>Optimiser:</strong> AdamW, cosine schedule, peak learning rate 5e-5.</li>
+<li><strong>Batch and embedding size:</strong> batch 2048, joint dimension 768.</li>
+<li><strong>Initialisation:</strong> vision towers from ImageNet-1K; text towers from the pretrained LMs.</li>
+<li><strong>Baselines:</strong> RoPE-ViT, FlexViT and NaFlex, each with LLaMA-3.2-1B as the text tower, trained identically.</li>
+</ul>
+<h3>3.6 Important design decisions</h3>
+<table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SSM on both sides</td>
+<td>Linear cost and no fixed length on either modality. Ablation (Table 10): VMamba + Mamba text beats VMamba + LLaMA by +3.5 Acc@1, a "matched architecture" synergy.</td>
+</tr>
+<tr>
+<td>Autoregressive (causal) LM, not a bidirectional SSM</td>
+<td>Mature pretrained LMs exist; the bidirectional Hydra was worse in Table 10.</td>
+</tr>
+<tr>
+<td>No positional embeddings in VMamba</td>
+<td>Any-resolution inference without interpolation or extra training.</td>
+</tr>
+<tr>
+<td>Controlled CC12M training</td>
+<td>Separates the effect of the architecture from the effect of the data.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>4. Our study: setup and implementation</h2>
+<h3>4.1 Scope</h3>
+<p>Retraining CLIMP on CC12M (2048 batch × 10 epochs with 1.4 B-parameter text towers) is far beyond a student budget. We therefore <strong>evaluate the released checkpoints</strong> (<code>NimrodShabtay1986/CLIMP-Mamba1</code>, <code>-Mamba2</code>) and retrain only the paper's small CIFAR-10 experiment.</p>
+<p>The paper's baselines (RoPE-ViT, FlexViT and NaFlex with LLaMA) are not released. As a reference we use <strong>OpenCLIP ViT-B/16 trained on LAION-2B</strong> (<code>laion2b_s34b_b88k</code>):</p>
+<ul>
+<li>It is the model the paper itself cites for its ImageNet-O claim.</li>
+<li>It is a widely used, strong public CLIP with a vision tower of the same size (ViT-B/16, 86 M parameters vs. VMamba-B's 88 M).</li>
+</ul>
+<p><strong>This is not a controlled comparison.</strong> OpenCLIP was trained on LAION-2B, a dataset about 167× larger than CC12M. It tells us how CLIMP compares to a CLIP that people actually use, not whether the architecture is better at equal data.</p>
+<h3>4.2 Experiments</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Experiment</th>
+<th>Data (size)</th>
+<th>Paper ref.</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>E1</td>
+<td>NoCaps retrieval @224/512/896 px + correctness gate</td>
+<td>NoCaps val (4,500 images, 45,000 captions)</td>
+<td>Table 4, README</td>
+<td>Reproduction</td>
+</tr>
+<tr>
+<td>E2</td>
+<td>Alignment / uniformity / hubness; CSLS correction</td>
+<td>NoCaps @224</td>
+<td>Table 8</td>
+<td>Reproduction + <strong>new</strong></td>
+</tr>
+<tr>
+<td>E3</td>
+<td>Zero-shot ImageNet-V2 / R / A / O</td>
+<td>10,000 / 30,000 / 7,500 / 2,000 images</td>
+<td>Table 2</td>
+<td>Reproduction</td>
+</tr>
+<tr>
+<td>E4</td>
+<td>Zero-shot under G×G patch shuffle (G = 2, 4, 8)</td>
+<td>ImageNet-V2</td>
+<td>–</td>
+<td><strong>New</strong></td>
+</tr>
+<tr>
+<td>E5</td>
+<td>DOCCI long-caption retrieval @896, text cut at 77 / 154 / full</td>
+<td>DOCCI test (5,000 pairs)</td>
+<td>Table 6</td>
+<td>Reproduction + <strong>new</strong></td>
+</tr>
+<tr>
+<td>E6</td>
+<td>Vision-encoder memory and FLOPs, 224–896 px</td>
+<td>–</td>
+<td>Fig. 3</td>
+<td>Reproduction + <strong>new</strong></td>
+</tr>
+<tr>
+<td>E7</td>
+<td>SugarCrepe compositionality (7 subsets)</td>
+<td>7,511 items, COCO val2017</td>
+<td>–</td>
+<td><strong>New</strong></td>
+</tr>
+<tr>
+<td>E8</td>
+<td>Tiny VMamba vs. ViT on CIFAR-10, regular vs. patch-shuffled, 3 seeds</td>
+<td>CIFAR-10 (50,000 / 10,000)</td>
+<td>Table 7</td>
+<td>Reproduction</td>
+</tr>
+</tbody>
+</table>
+<h3>4.3 Metrics</h3>
+<ul>
+<li><strong>Recall@k (R@k):</strong> the fraction of queries with at least one correct item in the top k.</li>
+<li><em>Image retrieval</em> means text query → images.</li>
+<li><em>Text retrieval</em> means image query → captions.</li>
+</ul>
+<p>Our implementation is unit-tested to give identical numbers to upstream <code>eval_nocaps.py</code>.
+- <strong>Alignment</strong> [Wang &amp; Isola 2020]: E‖vᵢ − tᵢ‖² over matched pairs. Lower means matched pairs are closer.
+- <strong>Uniformity:</strong> log E exp(−2‖xᵢ − xⱼ‖²). Lower means the embeddings are spread more evenly over the sphere.
+- <strong>Hubness</strong> [Radovanović et al. 2010]: the skewness of N_k, where N_k(g) counts how many queries have gallery item g among their k nearest neighbours.
+  - High skew means a few "hub" items appear in many neighbour lists and crowd out the correct answers.
+  - We use k = 10 because the paper does not state k.
+- <strong>CSLS</strong> [Conneau et al. 2018]:
+  - score(q, g) = 2·cos(q, g) − r_q − r_g, where r is an item's mean similarity to its 10 nearest cross-modal neighbours.
+  - It penalises hubs. It is <em>transductive</em>: it uses the test set's own neighbourhoods.
+- <strong>Zero-shot accuracy:</strong> top-1 and top-5 accuracy with class-name prompts averaged over the 80 OpenAI templates (the CLIP-Benchmark protocol).
+- <strong>SugarCrepe accuracy:</strong> an item counts as correct if sim(image, true caption) &gt; sim(image, hard-negative caption). Chance is 50%.</p>
+<h3>4.4 Implementation summary</h3>
+<p>The code is our own and contains no copies of upstream code. It imports the upstream model code from an untouched, pinned clone (<code>CLIMP/</code> at commit <code>3ff1279</code>).</p>
+<pre><code>src/common.py          model loading (CLIMP + OpenCLIP), batched encoding, patch shuffle, seeding, run metadata
+src/metrics.py         recall@k, alignment, uniformity, hubness, CSLS (pure torch)
+src/exp_*.py           one script per experiment (E1–E8); each writes results/&lt;name&gt;.json with config,
+                       library versions, GPU, git hashes, runtime and peak RAM
+src/make_results.py    builds every table (Markdown + LaTeX) and figure ONLY from results/*.json
+tests/test_metrics.py  11 unit tests (recall vs upstream code, metrics, patch shuffle, batching)
+kaggle/run_climp.ipynb two-GPU runner (one job queue per T4), staged runs, per-job timeouts
+ASSUMPTIONS.md         every deviation and interpretation, one line each
+</code></pre>
+<p><strong>Safeguards for correctness:</strong></p>
+<ol>
+<li><strong>Correctness gate.</strong>
+   - E1 compares CLIMP-Mamba1 @224 with the README numbers and stops the pipeline if any differs by more than 0.5 pp.
+   - It also checks that our tokenisation (<code>padding="longest"</code>) gives the same embeddings as upstream's padding (cosine similarity 1.00000).
+   - It also checks that one VMamba instance has identical parameters at every resolution.</li>
+<li><strong>Smoke tests first.</strong> Every script has a <code>--smoke</code> mode on a tiny subset. These runs caught two real failures before the full runs: an out-of-memory error on long DOCCI captions, and a library conflict.</li>
+<li><strong>No hand-typed numbers.</strong> Every number in our tables is produced by <code>make_results.py</code> from the result JSONs. The paper's numbers live in <code>paper_numbers.json</code>.</li>
+<li><strong>Fixed seeds and recorded environment.</strong> Seeds are fixed (E8 uses seeds 0, 1 and 2), and every result records library versions and git commits.</li>
+</ol>
+<p><strong>Engineering issues we solved:</strong></p>
+<ul>
+<li><strong>Long DOCCI captions ran out of GPU memory on a 16 GB T4.</strong> The upstream text encoder keeps the hidden states of all 49 layers. We batch by a token budget (≤ 4,096 tokens per batch) instead of a fixed count, which leaves the outputs unchanged.</li>
+<li><strong>Compiling Mamba's CUDA kernels takes 40–60 min.</strong> We pinned torch 2.10, which has official prebuilt wheels, and self-test the kernels on the GPU.</li>
+<li><strong>The NoCaps and DOCCI Hugging Face loaders no longer run.</strong> We read the official parquet and jsonlines files instead, preserving the row order.</li>
+<li><strong>E8 has to fit Kaggle's 4 CPU cores.</strong> CIFAR-10 is kept on the GPU, and augmentation (crop, flip, per-image patch shuffle) runs batched on the GPU.</li>
+</ul>
+<p><strong>Compute.</strong> Kaggle, 2× Tesla T4 (16 GB), fp16 autocast (the same precision as upstream evaluation). The work ran in two stages:</p>
+<ul>
+<li><strong>Stage 1 (E1, E2, E6, E8):</strong> about 3 h wall clock, dominated by E1's 896-px passes.</li>
+<li><strong>Stage 2 (E3, E4, E5, E7):</strong> shorter; it ran after the stage 1 correctness gate had been checked.</li>
+</ul>
+<p>Peak CPU RAM was 10 GB out of 34 GB.</p>
+<hr />
+<h2>5. Reproduction results (ours vs. paper)</h2>
+<p><img alt="Reproduction overview" src="../results/figures/fig4_reproduction.png" /></p>
+<p><em>Figure 1 (ours). Every number from the paper's Tables 2, 4 and 6 and the README that can be recomputed from the released weights. Left: ours vs. the paper's value; right: the difference. 32 of 34 values are within ±0.5 pp (median absolute gap 0.02 pp). The two outliers are ImageNet-O top-1 (+1.7) and Mamba-2 text R@10 (−0.6).</em></p>
+<h3>5.1 E1 — NoCaps retrieval and resolution scaling (Table 4)</h3>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Res</th>
+<th>Image R@1 / R@5 / R@10</th>
+<th>Text R@1 / R@5 / R@10</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CLIMP-Mamba1</td>
+<td>224</td>
+<td><strong>38.2 / 70.5 / 81.8</strong> (README 38.2 / 70.5 / 81.8)</td>
+<td><strong>51.8 / 81.9 / 90.9</strong> (README 51.8 / 81.9 / 90.9)</td>
+</tr>
+<tr>
+<td>CLIMP-Mamba1</td>
+<td>512</td>
+<td>34.2 / 66.9 / 79.2</td>
+<td>42.2 / 72.7 / 83.8</td>
+</tr>
+<tr>
+<td>CLIMP-Mamba1</td>
+<td>896</td>
+<td>26.2 / 57.1 / 70.8</td>
+<td>25.3 / 53.5 / 66.5</td>
+</tr>
+<tr>
+<td>CLIMP-Mamba2</td>
+<td>224</td>
+<td>37.4 / 70.2 / 81.7 (README 37.4 / 70.2 / 81.6)</td>
+<td>51.0 / 81.2 / 90.3 (README 51.0 / 81.3 / 90.9)</td>
+</tr>
+<tr>
+<td>CLIMP-Mamba2</td>
+<td>512</td>
+<td>33.9 / 66.4 / 79.2</td>
+<td>40.5 / 72.4 / 83.5</td>
+</tr>
+<tr>
+<td>CLIMP-Mamba2</td>
+<td>896</td>
+<td>25.8 / 57.1 / 70.8</td>
+<td>24.5 / 53.9 / 66.6</td>
+</tr>
+<tr>
+<td>OpenCLIP ViT-B/16</td>
+<td>224</td>
+<td>58.0 / 84.6 / 91.2</td>
+<td>80.0 / 95.7 / 98.2</td>
+</tr>
+<tr>
+<td>OpenCLIP ViT-B/16</td>
+<td>512</td>
+<td>54.3 / 82.2 / 89.6</td>
+<td>74.4 / 93.8 / 97.2</td>
+</tr>
+<tr>
+<td>OpenCLIP ViT-B/16</td>
+<td>896</td>
+<td>39.4 / 67.6 / 77.9</td>
+<td>51.7 / 77.2 / 84.9</td>
+</tr>
+</tbody>
+</table>
+<p>R@5 against paper Table 4:</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Res</th>
+<th>Image R@5 ours / paper</th>
+<th>Text R@5 ours / paper</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CLIMP-Mamba1</td>
+<td>224</td>
+<td>70.5 / 70.5</td>
+<td>81.9 / 81.9</td>
+</tr>
+<tr>
+<td>CLIMP-Mamba1</td>
+<td>512</td>
+<td>66.9 / 66.9</td>
+<td>72.7 / 72.7</td>
+</tr>
+<tr>
+<td>CLIMP-Mamba1</td>
+<td>896</td>
+<td>57.1 / 57.1</td>
+<td>53.5 / 53.5</td>
+</tr>
+<tr>
+<td>CLIMP-Mamba2</td>
+<td>224</td>
+<td>70.2 / 70.2</td>
+<td>81.2 / 81.3</td>
+</tr>
+<tr>
+<td>CLIMP-Mamba2</td>
+<td>512</td>
+<td>66.4 / 66.4</td>
+<td>72.4 / 72.4</td>
+</tr>
+<tr>
+<td>CLIMP-Mamba2</td>
+<td>896</td>
+<td>57.1 / 57.1</td>
+<td>53.9 / 53.8</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="NoCaps R@5 vs resolution" src="../results/figures/fig1_nocaps_resolution.png" /></p>
+<p><em>Figure 2 (ours). NoCaps R@5 vs. input resolution (all models trained at 224 px). Grey dashed line: the paper's RoPE-ViT + LLaMA baseline (paper Table 4).</em></p>
+<p><strong>Agreement.</strong></p>
+<ul>
+<li>CLIMP-Mamba1 reproduces the README exactly (all six numbers within 0.05 pp), and both variants reproduce every cell of paper Table 4 within 0.1 pp.</li>
+<li>The one deviation is Mamba-2 text R@10: 90.3 vs. the README's 90.9 (−0.6 pp). The README lists 90.9 for both models in that cell, which may be a copying error; we report the value as measured.</li>
+<li>Paper Table 4 labels its columns "I→T / T→I", but its values equal the README's <em>image / text retrieval</em>. The labels appear swapped.</li>
+</ul>
+<p><strong>Interpretation.</strong></p>
+<ul>
+<li><strong>The paper's comparison holds.</strong> Against its own baselines, CLIMP degrades "far more gracefully". RoPE-ViT falls to 38.6 / 34.9 R@5 at 896 px, while CLIMP keeps 57.1 / 53.5.</li>
+<li><strong>It does not hold against a stronger ViT.</strong> OpenCLIP ViT-B/16 uses plain interpolated positional embeddings, yet it stays above CLIMP at every resolution.</li>
+<li><strong>It degrades at a similar rate.</strong> From 224 to 896 px, image R@5 falls by about 20% for OpenCLIP and 19% for CLIMP.</li>
+<li><strong>CLIMP's text retrieval degrades faster:</strong> it loses 35% (81.9 → 53.5), while OpenCLIP loses 19% (95.7 → 77.2).</li>
+<li>"Any resolution without positional embeddings" is real: the model runs and the numbers match. But it does not translate into <em>better</em> high-resolution accuracy than a well-trained ViT.</li>
+</ul>
+<h3>5.2 E2 — Embedding geometry (Table 8)</h3>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Source</th>
+<th>Alignment ↓</th>
+<th>Unif. image ↓</th>
+<th>Unif. text ↓</th>
+<th>Hubness image ↓</th>
+<th>Hubness text ↓</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CLIMP-Mamba1</td>
+<td><strong>ours</strong></td>
+<td><strong>0.982</strong></td>
+<td><strong>−3.184</strong></td>
+<td><strong>−3.546</strong></td>
+<td>1.554</td>
+<td>1.787</td>
+</tr>
+<tr>
+<td>CLIMP-Mamba1</td>
+<td>paper</td>
+<td>0.982</td>
+<td>−3.18</td>
+<td>−3.54</td>
+<td>1.01</td>
+<td>1.15</td>
+</tr>
+<tr>
+<td>OpenCLIP ViT-B/16</td>
+<td>ours</td>
+<td>1.437</td>
+<td>−2.724</td>
+<td>−2.736</td>
+<td>1.685</td>
+<td>4.124</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Agreement.</strong> Alignment and both uniformity values match the paper to the reported precision. This strongly suggests that we compute these metrics the same way: one caption per image, Wang &amp; Isola's definitions.</p>
+<p><strong>Gap.</strong> Our hubness values are 0.5–0.6 higher. The paper does not specify k or how N_k is computed, so the absolute values are not comparable. The paper's text also says 1.13 while its Table 8 says 1.15.</p>
+<p><strong>Our comparison is internally consistent.</strong> We use the same k for both models, and CLIMP shows much better alignment (0.98 vs. 1.44) and <strong>much less text-side hubness (1.79 vs. 4.12)</strong> than OpenCLIP. The paper's geometric argument (tight alignment and low text hubness) therefore holds against OpenCLIP too.</p>
+<p><strong>But geometry is not accuracy.</strong> OpenCLIP has the worse geometry yet the much better retrieval (§5.1). Alignment and hubness alone do not explain retrieval quality, which weakens the paper's causal story ("better geometry → better retrieval").</p>
+<h3>5.3 E3 — Zero-shot OOD robustness (Table 2)</h3>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>IN-V2 top-1 / 5</th>
+<th>IN-R top-1 / 5</th>
+<th>IN-A top-1 / 5</th>
+<th>IN-O top-1 / 5</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CLIMP-Mamba1 (<strong>ours</strong>)</td>
+<td><strong>37.6</strong> / 68.4</td>
+<td><strong>46.6</strong> / 74.5</td>
+<td><strong>15.6</strong> / 45.3</td>
+<td><strong>49.8</strong> / 78.8</td>
+</tr>
+<tr>
+<td>CLIMP-Mamba1 (paper)</td>
+<td>37.5 / 68.4</td>
+<td>46.2 / 74.5</td>
+<td>15.5 / 45.3</td>
+<td>48.1 / 78.8</td>
+</tr>
+<tr>
+<td>RoPE-ViT + LLaMA (paper, best baseline)</td>
+<td>34.4 / 65.4</td>
+<td>47.8 / 76.0</td>
+<td>16.3 / 46.3</td>
+<td>40.1 / 69.9</td>
+</tr>
+<tr>
+<td>OpenCLIP ViT-B/16 (ours)</td>
+<td>62.3 / 87.0</td>
+<td>80.6 / 94.0</td>
+<td>38.2 / 70.6</td>
+<td>46.4 / 77.3</td>
+</tr>
+<tr>
+<td>OpenCLIP ViT-B/16 (paper, quoted)</td>
+<td>–</td>
+<td>–</td>
+<td>–</td>
+<td>42.3 / –</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="Zero-shot" src="../results/figures/fig9_zeroshot.png" /></p>
+<p><em>Figure 3 (ours). Zero-shot top-1. Diamonds: the paper's CLIMP-Mamba1 values; grey: the paper's best CC12M Transformer baseline.</em></p>
+<p><strong>Agreement.</strong></p>
+<ul>
+<li>All four top-5 values match exactly, and top-1 is within 0.4 pp on V2, R and A.</li>
+<li>On ImageNet-O our top-1 is 49.8 vs. the paper's 48.1. The difference is small, and the small test set (2,000 images) is one plausible source. Note also that 49.8 is exactly the paper's <em>Mamba-2</em> ImageNet-O top-1, which raises the possibility of a row mix-up in the paper's table; we cannot verify this.</li>
+</ul>
+<p><strong>The ImageNet-O claim survives.</strong> CLIMP (49.8) beats OpenCLIP ViT-B/16 trained on LAION-2B (46.4 in our run, 42.3 quoted by the paper). The margin is smaller in our measurement: 3.4 pp instead of 5.8 pp.</p>
+<p><strong>The broader robustness story does not.</strong> On V2, R and A, OpenCLIP leads by 23–34 pp. Averaged over the four sets, OpenCLIP scores 56.9 top-1 vs. CLIMP's 37.4.</p>
+<ul>
+<li>ImageNet-O is unusual. It was built for OOD <em>detection</em>: images from outside ImageNet-1K's classes that ResNet-50 confidently misclassifies.</li>
+<li>Accuracy on it is a narrow and somewhat unusual signal, not a measure of general robustness.</li>
+<li>In our view, the claim "architectural bias can outweigh data scale" rests on this single dataset.</li>
+</ul>
+<h3>5.4 E5 — DOCCI long-caption retrieval @896 px (Table 6)</h3>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Text length</th>
+<th>Image R@1 / R@5 / R@10</th>
+<th>Text R@1 / R@5 / R@10</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CLIMP-Mamba1 (<strong>ours</strong>)</td>
+<td>full</td>
+<td><strong>37.3 / 67.0 / 77.8</strong></td>
+<td><strong>23.8 / 50.4 / 62.7</strong></td>
+</tr>
+<tr>
+<td>CLIMP-Mamba1 (paper)</td>
+<td>full</td>
+<td>37.3 / 67.1 / 77.8</td>
+<td>23.8 / 50.4 / 62.7</td>
+</tr>
+<tr>
+<td>NaFlex + LLaMA (paper, best baseline)</td>
+<td>full</td>
+<td>29.1 / 55.3 / 67.5</td>
+<td>26.1 / 53.4 / 65.1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Agreement.</strong> All six numbers match the paper exactly, except image R@5, which differs by 0.1 pp. Our caption statistics also match: mean 142.6 tokens, 94.5% of captions over 77 tokens, longest 578 (paper: ~142 and 94.4%). The truncation ablation and the OpenCLIP comparison are new and appear in §6.3.</p>
+<h3>5.5 E6 — Vision-encoder efficiency (Fig. 3)</h3>
+<p>Batch 1, fp16, one forward pass. Activation memory = peak memory − (weights + input).</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Quantity</th>
+<th>224</th>
+<th>384</th>
+<th>512</th>
+<th>768</th>
+<th>896</th>
+<th>Paper @896</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>VMamba-B</td>
+<td>GFLOPs</td>
+<td>15.4</td>
+<td>45.1</td>
+<td>80.2</td>
+<td>180.5</td>
+<td><strong>245.7</strong></td>
+<td>259.7</td>
+</tr>
+<tr>
+<td>ViT-B/16</td>
+<td>GFLOPs</td>
+<td>17.6</td>
+<td>55.5</td>
+<td>107.1</td>
+<td>295.3</td>
+<td><strong>450.0</strong></td>
+<td>457.9</td>
+</tr>
+<tr>
+<td>VMamba-B</td>
+<td>activation MB</td>
+<td>36.4</td>
+<td>105.4</td>
+<td>186.1</td>
+<td>417.7</td>
+<td><strong>573.5</strong></td>
+<td>10.0</td>
+</tr>
+<tr>
+<td>ViT-B/16, fused attention (default)</td>
+<td>activation MB</td>
+<td>6.3</td>
+<td>15.9</td>
+<td>24.1</td>
+<td>55.0</td>
+<td><strong>73.7</strong></td>
+<td>50.4</td>
+</tr>
+<tr>
+<td>ViT-B/16, eager attention</td>
+<td>activation MB</td>
+<td>6.3</td>
+<td>33.7</td>
+<td>89.0</td>
+<td>402.7</td>
+<td><strong>726.3</strong></td>
+<td>–</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="Efficiency" src="../results/figures/fig2_efficiency.png" /></p>
+<p><em>Figure 4 (ours). Left: activation memory per image. Right: GFLOPs (fused and eager attention have identical FLOPs). Grey diamonds: the paper's values at 896 px.</em></p>
+<p><strong>FLOPs reproduce.</strong></p>
+<ul>
+<li>Our counts are within 5% of the paper's (VMamba 245.7 vs. 259.7; ViT 450.0 vs. 457.9).</li>
+<li>The ratio matches: 1.83× fewer FLOPs for VMamba at 896 px (paper: 1.8×).</li>
+<li>At 224 px the two models cost about the same (15.4 vs. 17.6 GFLOPs). Our 15.4 GFLOPs for VMamba-B equals the figure published by VMamba's authors, which validates the counter. The gap opens with resolution because attention is quadratic.</li>
+</ul>
+<p><strong>Memory does not reproduce.</strong> The paper reports 10 MB for CLIMP vs. 50 MB for ViT, a 5× saving. In our measurement:</p>
+<ul>
+<li><strong>Against the default fused ViT</strong> (PyTorch's memory-efficient attention, which never materialises the L×L matrix), VMamba needs <strong>7.8× more</strong> activation memory at 896 px (573.5 vs. 73.7 MB).</li>
+<li><strong>Only against "eager" attention</strong>, which stores the full 3,137×3,137 attention matrix per head, is VMamba lower (573.5 vs. 726.3 MB, −21%), and only from about 768 px upward.</li>
+</ul>
+<p>A likely cause of VMamba's high memory: SS2D keeps four directional copies of every feature map, and VMamba-B's early stages run at high spatial resolution.</p>
+<p>The paper calls its quantity "resolution-specific memory" but does not define it, and its 10 MB at 896 px is below anything we can measure for an 88 M-parameter network. Our conclusion: <strong>the memory advantage depends on the attention implementation and is not intrinsic.</strong> Modern fused attention removes the quadratic memory cost of ViT, although it keeps the quadratic compute.</p>
+<h3>5.6 E8 — Spatial inductive bias on CIFAR-10 (Table 7)</h3>
+<p>Tiny 3-layer models: VMamba (330,382 parameters) and ViT (347,722 parameters), each within 5% of the paper's sizes. 20 epochs, AdamW, crop + flip augmentation, 3 seeds. "Shuffled" means each image's 8×8 grid of 4×4 patches is randomly permuted, both in training and at test time.</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Data</th>
+<th>Train loss ours</th>
+<th>Train loss paper</th>
+<th>Test acc. ours</th>
+<th>Test acc. paper</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>VMamba</td>
+<td>regular</td>
+<td><strong>0.458 ± 0.003</strong></td>
+<td>1.028</td>
+<td><strong>81.76 ± 0.27</strong></td>
+<td>69.33</td>
+</tr>
+<tr>
+<td>ViT</td>
+<td>regular</td>
+<td>0.727 ± 0.009</td>
+<td>1.121</td>
+<td>72.89 ± 0.42</td>
+<td>67.50</td>
+</tr>
+<tr>
+<td>VMamba</td>
+<td>shuffled</td>
+<td>1.149 ± 0.012</td>
+<td>1.612</td>
+<td>56.96 ± 0.43</td>
+<td>46.44</td>
+</tr>
+<tr>
+<td>ViT</td>
+<td>shuffled</td>
+<td><strong>0.903 ± 0.017</strong></td>
+<td>1.328</td>
+<td><strong>65.10 ± 0.49</strong></td>
+<td>59.72</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="CIFAR inductive bias" src="../results/figures/fig5_cifar_bias.png" /></p>
+<p><em>Figure 5 (ours). CIFAR-10 test accuracy, mean ± std over 3 seeds; diamonds: paper Table 7.</em></p>
+<p><strong>The pattern reproduces in every cell.</strong></p>
+<ul>
+<li>On regular images VMamba beats ViT: lower loss, and +8.9 pp test accuracy.</li>
+<li>Under shuffling the order flips. VMamba loses 24.8 pp, while ViT loses only 7.8 pp and ends 8.1 pp ahead.</li>
+<li>The seed standard deviations are below 0.5 pp, so these gaps are far beyond noise.</li>
+</ul>
+<p>Our absolute accuracies are higher than the paper's. The paper does not state its epochs, learning rate or augmentation, so we compare the <em>pattern</em>, not the values.</p>
+<p><strong>This confirms the paper's claim at small scale.</strong> The scan order encodes spatial adjacency: VMamba exploits it when the layout is natural and is hurt when it is destroyed. ViT, which treats patches as a set (plus a positional embedding), is less dependent on layout.</p>
+<hr />
+<h2>6. New findings (our additions)</h2>
+<h3>6.1 A strong public baseline across every experiment</h3>
+<p><strong>What we did.</strong> We evaluated OpenCLIP ViT-B/16 (LAION-2B) with the identical pipeline in E1–E7.</p>
+<p><strong>Result.</strong> It beats CLIMP in nearly every experiment:</p>
+<table>
+<thead>
+<tr>
+<th>Experiment</th>
+<th>CLIMP-Mamba1</th>
+<th>OpenCLIP</th>
+<th>Difference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NoCaps text R@1 @224</td>
+<td>51.8</td>
+<td>80.0</td>
+<td>+28.1</td>
+</tr>
+<tr>
+<td>NoCaps text R@1 @896</td>
+<td>25.3</td>
+<td>51.7</td>
+<td>+26.4</td>
+</tr>
+<tr>
+<td>Zero-shot, 4-set average</td>
+<td>37.4</td>
+<td>56.9</td>
+<td>+19.5</td>
+</tr>
+<tr>
+<td>DOCCI image R@1, full vs. 77 tokens</td>
+<td>37.3</td>
+<td>44.1</td>
+<td>+6.8</td>
+</tr>
+<tr>
+<td>SugarCrepe macro</td>
+<td>71.7</td>
+<td>79.4</td>
+<td>+7.7</td>
+</tr>
+</tbody>
+</table>
+<p>ImageNet-O is the one exception: CLIMP wins there by 3.4 pp.</p>
+<p><strong>What it means.</strong> CLIMP's advantages are real <em>at equal training data</em> (CC12M), but data scale still dominates. The paper's controlled comparison is the right test of the architecture. The paper's abstract-level claims ("surpassing CLIP-ViT-B trained on 167× more data") apply to ImageNet-O only.</p>
+<h3>6.2 E2 extension — Does correcting hubness help? (CSLS)</h3>
+<p><strong>What we did.</strong> We re-scored the NoCaps similarity matrices with CSLS (k = 10), which subtracts each item's average similarity to its neighbours.</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Task</th>
+<th>R@1</th>
+<th>R@5</th>
+<th>R@10</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CLIMP-Mamba1</td>
+<td>image retrieval</td>
+<td>38.2 → <strong>42.7</strong> (+4.5)</td>
+<td>70.5 → 74.5</td>
+<td>81.8 → 84.7</td>
+</tr>
+<tr>
+<td>CLIMP-Mamba1</td>
+<td>text retrieval</td>
+<td>51.8 → <strong>61.2</strong> (+9.3)</td>
+<td>81.9 → 86.9</td>
+<td>90.9 → 93.3</td>
+</tr>
+<tr>
+<td>OpenCLIP ViT-B/16</td>
+<td>image retrieval</td>
+<td>58.0 → 62.1 (+4.2)</td>
+<td>84.6 → 87.3</td>
+<td>91.2 → 92.9</td>
+</tr>
+<tr>
+<td>OpenCLIP ViT-B/16</td>
+<td>text retrieval</td>
+<td>80.0 → 84.5 (+4.5)</td>
+<td>95.7 → 97.0</td>
+<td>98.2 → 99.0</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="CSLS" src="../results/figures/fig8_csls.png" /></p>
+<p><em>Figure 6 (ours). NoCaps R@1 with cosine similarity (open circle) and after CSLS re-scoring (filled).</em></p>
+<p><strong>Finding.</strong> CSLS needs no training and lifts CLIMP's text R@1 by <strong>+9.3 pp</strong>, twice the gain it gives OpenCLIP.</p>
+<p>The paper presents CLIMP's hubness as already low. Our result shows that the remaining hubness still costs CLIMP substantial retrieval accuracy, especially when images are the queries. A post-hoc correction recovers part of the gap to OpenCLIP: text R@1 goes from −28.1 pp to −23.3 pp.</p>
+<p>Caveat: CSLS is transductive, because it uses the test set's own neighbourhoods. It is fair to use only when a batch of queries and the gallery are available together.</p>
+<h3>6.3 E5 extension — How much does long text actually help?</h3>
+<p><strong>What we did.</strong> The paper only evaluates full-length captions. We ran CLIMP with captions cut to 77 tokens (CLIP's limit), 154 tokens, and full length. OpenCLIP runs at 77 tokens, its architectural limit.</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Text length</th>
+<th>Image R@1 / R@5 / R@10</th>
+<th>Text R@1 / R@5 / R@10</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CLIMP-Mamba1</td>
+<td>77</td>
+<td>28.0 / 55.6 / 67.5</td>
+<td>17.2 / 39.4 / 51.6</td>
+</tr>
+<tr>
+<td>CLIMP-Mamba1</td>
+<td>154</td>
+<td>35.0 / 65.1 / 75.8</td>
+<td>22.2 / 48.0 / 60.5</td>
+</tr>
+<tr>
+<td>CLIMP-Mamba1</td>
+<td>full</td>
+<td>37.3 / 67.0 / 77.8</td>
+<td>23.8 / 50.4 / 62.7</td>
+</tr>
+<tr>
+<td>OpenCLIP ViT-B/16</td>
+<td>77 (max)</td>
+<td><strong>44.1 / 69.8 / 78.5</strong></td>
+<td><strong>41.0 / 66.0 / 75.0</strong></td>
+</tr>
+</tbody>
+</table>
+<p><img alt="DOCCI truncation" src="../results/figures/fig6_docci_tokens.png" /></p>
+<p><em>Figure 7 (ours). DOCCI R@1 at 896 px vs. the number of caption tokens given to CLIMP's text tower. Dotted line: OpenCLIP, which always truncates at 77 tokens. Diamond: the paper's full-caption value.</em></p>
+<p><strong>Findings.</strong></p>
+<ol>
+<li><strong>Long context helps CLIMP substantially.</strong> Going from 77 tokens to full captions adds +9.2 pp image R@1 and +6.6 pp text R@1. This is the first direct evidence for the paper's long-text motivation, since its Table 6 compares different models, not text lengths.</li>
+<li><strong>Most of the gain arrives by 154 tokens:</strong> about 75% of it for both tasks. Only 33.7% of DOCCI captions are longer than 154 tokens.</li>
+<li><strong>Reading more text does not overcome a weaker base model.</strong> OpenCLIP reads less than half of each caption, yet it beats full-length CLIMP on every metric. On text retrieval the gap is large: 41.0 vs. 23.8 R@1.</li>
+</ol>
+<h3>6.4 E4 — Is the pretrained CLIMP more sensitive to spatial layout? (patch shuffle)</h3>
+<p><strong>What we did.</strong> We cut each 224-px test image into a G×G grid and randomly permuted the blocks, using the same permutation for both models. We then measured zero-shot ImageNet-V2 accuracy. This tests whether E8's small-scale finding (VMamba depends on spatial layout) carries over to the large pretrained model.</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>G=1 (none)</th>
+<th>G=2</th>
+<th>G=4</th>
+<th>G=8</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CLIMP-Mamba1</td>
+<td>37.6</td>
+<td>33.1 (−12%)</td>
+<td>25.8 (−31%)</td>
+<td>10.7 (−71%)</td>
+</tr>
+<tr>
+<td>OpenCLIP ViT-B/16</td>
+<td>62.3</td>
+<td>54.4 (−13%)</td>
+<td>43.4 (−30%)</td>
+<td>19.7 (−68%)</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="Patch shuffle" src="../results/figures/fig3_patch_shuffle.png" /></p>
+<p><em>Figure 8 (ours). Zero-shot ImageNet-V2 top-1 under G×G block shuffling, relative to unshuffled accuracy (absolute values in brackets).</em></p>
+<p><strong>Finding.</strong> The <em>relative</em> drops are almost identical at every grid size, within 3 pp of each other. At pretraining scale, CLIMP is neither more nor less sensitive to layout than a ViT.</p>
+<p>This contrasts with E8, where the tiny VMamba lost three times as much accuracy as the ViT. A plausible reading: the scan-order bias matters most when data is scarce, which is exactly the sample-efficiency argument the paper makes. Once a model is trained on millions of pairs, both architectures learn similar, largely layout-dependent object features. <strong>The spatial-bias argument (E8) should not be extrapolated to the pretrained model's robustness without a test like this one.</strong></p>
+<h3>6.5 E5/E6 extension — Fused vs. eager attention (memory)</h3>
+<p>See §5.5. Adding the fused-attention ViT shows that the memory comparison depends on the attention kernel, a factor the paper does not discuss.</p>
+<h3>6.6 E7 — Compositional understanding (SugarCrepe)</h3>
+<p><strong>What we did.</strong> SugarCrepe pairs a COCO image with its true caption and a hard negative that adds, replaces or swaps an object, attribute or relation. We count how often the true caption scores higher.</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>add att</th>
+<th>add obj</th>
+<th>repl. att</th>
+<th>repl. obj</th>
+<th>repl. rel</th>
+<th>swap att</th>
+<th>swap obj</th>
+<th>macro</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CLIMP-Mamba1</td>
+<td>75.4</td>
+<td>83.2</td>
+<td>75.6</td>
+<td>89.4</td>
+<td>67.2</td>
+<td><strong>55.3</strong></td>
+<td><strong>55.5</strong></td>
+<td>71.7</td>
+</tr>
+<tr>
+<td>OpenCLIP ViT-B/16</td>
+<td>81.8</td>
+<td>89.2</td>
+<td>85.0</td>
+<td>96.1</td>
+<td>71.1</td>
+<td>67.7</td>
+<td>64.9</td>
+<td>79.4</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="SugarCrepe" src="../results/figures/fig7_sugarcrepe.png" /></p>
+<p><em>Figure 9 (ours). SugarCrepe accuracy per subset; dashed line: chance (50%).</em></p>
+<p><strong>Finding.</strong> CLIMP trails on every subset (macro −7.7 pp). It is close to chance (50%) on the <em>swap</em> subsets, such as "a white dog and a black cat" vs. "a black dog and a white cat". Those test word order and binding.</p>
+<p>This is notable because CLIMP's text tower is a 1.4 B-parameter language model, far larger than OpenCLIP's 63 M-parameter text Transformer, and a causal LM should be sensitive to word order. The contrastive objective on CC12M evidently does not force the model to use that sensitivity. This is the known "bag-of-words" behaviour of CLIP models [Yuksekgonul et al. 2023], and CLIMP inherits it.</p>
+<hr />
+<h2>7. Critical analysis</h2>
+<h3>7.1 Strengths</h3>
+<ul>
+<li><strong>Fully reproducible released artefacts.</strong> Every number we could recompute from the released weights matched to within 0.1–0.4 pp, except one cell off by 0.6 pp and ImageNet-O top-1 off by 1.7 pp. This is unusually good.</li>
+<li><strong>A clean idea with real mechanisms behind it.</strong></li>
+<li>Any-resolution inference works without positional interpolation; we verified that one set of weights serves every size.</li>
+<li>Arbitrary-length text works and measurably helps (E5: +9.2 pp).</li>
+<li>FLOPs really scale better (1.8× at 896 px).</li>
+<li><strong>A controlled comparison.</strong> Training every model on the same data is the right way to isolate the effect of the architecture.</li>
+<li><strong>A genuine inductive-bias experiment.</strong> E8 is simple and convincing, and its pattern reproduced across 3 seeds with tight error bars.</li>
+</ul>
+<h3>7.2 Limitations and weaknesses</h3>
+<ol>
+<li><strong>Baselines are weak and unreleased.</strong>
+   - The transformer baselines are trained by the authors on CC12M with a LLaMA text tower, and none are public.
+   - Their 896-px NoCaps text R@5 (34.9 for RoPE-ViT) is far below what an off-the-shelf OpenCLIP ViT reaches with plain interpolation (77.2).
+   - Some of CLIMP's high-resolution "advantage" may reflect poorly tuned baselines rather than architecture.</li>
+<li><strong>Headline claims rest on narrow evidence.</strong>
+   - "Surpasses CLIP trained on 167× more data" holds on ImageNet-O only.
+   - On V2, R and A, that CLIP is 23–34 pp better (§5.3).</li>
+<li><strong>Memory claim is under-specified.</strong> The memory quantity is not defined. With modern fused attention, ViT uses <em>less</em> activation memory than VMamba at every resolution we tested (§5.5).</li>
+<li><strong>Geometry → accuracy is asserted, not shown.</strong>
+   - Lower hubness and tighter alignment correlate with CLIMP's wins over its own baselines.
+   - But OpenCLIP has worse geometry and far better retrieval (§5.2), so geometry is not sufficient.
+   - The hubness k is unspecified, and the text and the table disagree (1.13 vs. 1.15).</li>
+<li><strong>Small-scale bias ≠ large-scale behaviour.</strong> The spatial-bias evidence (E8) uses 0.33 M-parameter models on CIFAR-10. In the pretrained model, the layout sensitivity is the same as a ViT's (§6.4).</li>
+<li><strong>What our study cannot test.</strong> We evaluated released weights and did not retrain at scale, so the paper's central controlled comparison (all models trained identically on CC12M), its baselines and its scaling curves are taken on trust. Our close matches confirm the <em>evaluation</em>, not the <em>training</em>.</li>
+<li><strong>Presentation issues.</strong>
+   - Table 4's I→T and T→I labels appear swapped relative to the code and README.
+   - The memory figure has no units definition.
+   - The ImageNet-O row may be mixed up.</li>
+<li><strong>Scope of evaluation.</strong> Zero-shot evaluation is mostly ImageNet-centric. Compositional understanding is not evaluated; our E7 shows it is weak.</li>
+</ol>
+<h3>7.3 Assumptions the method makes</h3>
+<ul>
+<li><strong>Scan order is a good proxy for 2-D position.</strong> It is, partly: four 1-D scans approximate 2-D neighbourhoods, but points adjacent vertically are far apart in a row-major scan.</li>
+<li><strong>The last token of a causal LM is a good sentence embedding.</strong> It works, but swap-type compositional errors (E7) suggest that the information is not used fully.</li>
+<li><strong>Training at 224 px suffices for any resolution.</strong> Accuracy still falls by about 19–35% at 896 px (E1). "Supports any resolution" does not mean "works equally well at any resolution".</li>
+</ul>
+<h3>7.4 Are the experiments sufficient?</h3>
+<p>For the claim "SSMs are a viable CLIP backbone at equal data": <strong>mostly yes</strong>. For "better than Transformers in general": <strong>no</strong>. That would need:</p>
+<ol>
+<li>baselines trained with standard, tuned recipes, ideally released;</li>
+<li>at least one comparison at larger data scale;</li>
+<li>memory measured with fused attention;</li>
+<li>error bars on the big-model results.</li>
+</ol>
+<h3>7.5 What we would improve</h3>
+<ul>
+<li><strong>Release the baseline checkpoints</strong> and report the memory metric precisely: peak allocated memory, batch size, attention kernel.</li>
+<li><strong>Add a hubness-aware inference step</strong> (CSLS or inverted softmax). It is free and gave +4.5 to +9.3 pp R@1 in our tests.</li>
+<li><strong>Fine-tune briefly at higher resolution.</strong> The text-retrieval drop at 896 px suggests that the projection was tuned to 224-px feature statistics.</li>
+<li><strong>Add compositional training signals</strong> (hard negatives, as in NegCLIP) to exploit the LM text tower's sensitivity to word order.</li>
+<li><strong>Run the patch-shuffle test on pretrained models (our E4)</strong> before claiming that a spatial bias explains robustness.</li>
+</ul>
+<hr />
+<h2>8. Impact and relation to NLP / LLM systems</h2>
+<p>CLIMP is part of a broader shift from "Transformers everywhere" towards <strong>sub-quadratic and hybrid sequence models</strong>. Examples include Mamba, Mamba-2 and hybrid Mamba-Transformer LLMs such as Jamba and Nemotron-H. It makes three points relevant to modern LLM systems.</p>
+<ol>
+<li><strong>Recurrent LMs work as embedding models.</strong> Last-token pooling of a causal Mamba LM gives competitive text embeddings and removes the context limit. This mirrors the trend of using decoder LLMs (e.g., LLM2CLIP, LLM-based text embedders) as encoders.</li>
+<li><strong>Vision encoders for multimodal LLMs.</strong> Vision-language LLMs feed thousands of visual tokens into the language model. A vision encoder with linear compute and no positional table is attractive for high-resolution inputs such as documents and charts. Our E6 shows that the compute saving is real, but the memory saving needs fused attention to be taken into account.</li>
+<li><strong>Long-context retrieval.</strong> E5 shows that reading the whole description matters (+9.2 pp R@1). The same argument drives long-context LLM retrieval. Equally, data and training scale still dominate architecture, a lesson familiar from LLM scaling laws.</li>
+</ol>
+<p>The paper appeared in 2026, so its long-term influence is not yet visible. Its clearest contribution is an existence proof that a fully SSM-based CLIP is competitive <em>at equal data</em>.</p>
+<hr />
+<h2>9. Conclusion</h2>
+<p>We reproduced the released CLIMP checkpoints essentially exactly:</p>
+<ul>
+<li>NoCaps at all resolutions, ImageNet-V2/R/A/O, and DOCCI long captions;</li>
+<li>alignment, uniformity and FLOPs;</li>
+<li>the CIFAR-10 inductive-bias pattern.</li>
+</ul>
+<p>These parts of the paper are trustworthy. Three claims did not hold under a broader test:</p>
+<ul>
+<li>the 5× memory saving, which depends on the attention kernel;</li>
+<li>the claimed hubness values;</li>
+<li>the idea that CLIMP's advantages hold against a strong, data-rich ViT CLIP, which they do only on ImageNet-O.</li>
+</ul>
+<p>Our additions show three further things:</p>
+<ul>
+<li>CLIMP's long-text ability is real and worth +9 pp.</li>
+<li>A training-free hubness correction adds up to +9.3 pp R@1.</li>
+<li>The pretrained model's spatial sensitivity matches a ViT's, and CLIMP shares CLIP's weakness on word order.</li>
+</ul>
+<p>Overall: <strong>Mamba is a viable CLIP backbone, but not yet a better one.</strong></p>
+<hr />
+<p><em>Author's note.</em> This is a single-author project. The code, experiments, analysis, report and presentation are my own work, written with an AI coding assistant. All reported numbers come from <code>results/*.json</code>, produced by the code in the repository; paper numbers are taken from arXiv 2601.06891 v2 and the upstream README. Every deviation from the paper's protocol is listed in <code>ASSUMPTIONS.md</code>.</p>
+<h2>References</h2>
+<ul>
+<li>Radford et al. <em>Learning Transferable Visual Models From Natural Language Supervision</em> (CLIP). ICML 2021.</li>
+<li>Cherti et al. <em>Reproducible Scaling Laws for Contrastive Language-Image Learning</em> (OpenCLIP). CVPR 2023.</li>
+<li>Gu &amp; Dao. <em>Mamba: Linear-Time Sequence Modeling with Selective State Spaces.</em> 2023.</li>
+<li>Dao &amp; Gu. <em>Transformers are SSMs</em> (Mamba-2 / SSD). ICML 2024.</li>
+<li>Liu et al. <em>VMamba: Visual State Space Model.</em> NeurIPS 2024.</li>
+<li>Wang &amp; Isola. <em>Understanding Contrastive Representation Learning through Alignment and Uniformity.</em> ICML 2020.</li>
+<li>Radovanović et al. <em>Hubs in Space.</em> JMLR 2010.</li>
+<li>Conneau et al. <em>Word Translation Without Parallel Data</em> (CSLS). ICLR 2018.</li>
+<li>Hsieh et al. <em>SugarCrepe.</em> NeurIPS 2023.</li>
+<li>Yuksekgonul et al. <em>When and Why Vision-Language Models Behave like Bags-of-Words.</em> ICLR 2023.</li>
+<li>Onoe et al. <em>DOCCI.</em> ECCV 2024.</li>
+<li>Agrawal et al. <em>NoCaps.</em> ICCV 2019.</li>
+<li>Hendrycks et al. <em>Natural Adversarial Examples</em> (ImageNet-A/O). CVPR 2021.</li>
+<li>Huang et al. <em>CLIP-Mamba.</em> 2024.</li>
+<li>Huang et al. <em>LLM2CLIP.</em> 2024.</li>
+</ul></body></html>
